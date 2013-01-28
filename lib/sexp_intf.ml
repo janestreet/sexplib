@@ -43,6 +43,10 @@ module type S = sig
   (** [scan_rev_sexps ?buf lexbuf] same as {!scan_sexps}, but returns the
       reversed list and is slightly more efficient. *)
 
+  val scan_sexp_opt : ?buf : Buffer.t -> Lexing.lexbuf -> t option
+  (** [scan_sexp_opt ?buf lexbuf] is equivalent to [scan_sexp ?buf lexbuf]
+      except that it returns [None] when the eof is reached. *)
+
   val scan_iter_sexps :
     ?buf : Buffer.t -> f : (t -> unit) -> Lexing.lexbuf -> unit
   (** [scan_iter_sexps ?buf ~f lexbuf] iterates over all whitespace

@@ -202,7 +202,8 @@ module Tmp_file = struct
     let rnd = (Random.State.bits rand_state) land 0xFFFFFF in
     Printf.sprintf "%s%06x%s" prefix rnd suffix
 
-  let open_temp_file ?(perm = 0o600) prefix suffix =
+  (* Keep the permissions loose. Sexps are usually shared and rarely private*)
+  let open_temp_file ?(perm = 0o666) prefix suffix =
     let rec try_name counter =
       let name = temp_file_name prefix suffix in
       try
@@ -273,6 +274,7 @@ let to_string = to_string_mach
 (* Scan functions *)
 
 let scan_sexp ?buf lexbuf = Parser.sexp (Lexer.main ?buf) lexbuf
+let scan_sexp_opt ?buf lexbuf = Parser.sexp_opt (Lexer.main ?buf) lexbuf
 let scan_sexps ?buf lexbuf = Parser.sexps (Lexer.main ?buf) lexbuf
 let scan_rev_sexps ?buf lexbuf = Parser.rev_sexps (Lexer.main ?buf) lexbuf
 

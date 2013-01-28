@@ -22,3 +22,7 @@ let () =
    says that this definition is recursive *)
 type r = { r : int } with sexp
 
+module A = struct
+  type nonrec r = { r : r }
+  let _ (r : r) = r.r (* checking that the field is not rewritten *)
+end

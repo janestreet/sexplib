@@ -185,22 +185,22 @@ let () =
   parse_fail _here_ "a#|"
     (function
     | Failure s -> grep "comment tokens in unquoted atom" s
-    | Sexp.Parse_error {Sexp.location = "maybe_parse_bad_atom_hash"; _} -> true
+    | Sexp.Parse_error {Sexp.location = "maybe_parse_bad_atom_hash"; err_msg=_; parse_state=_ } -> true
     | _ -> false);
   parse_fail _here_ "a|#"
     (function
     | Failure s -> grep "comment tokens in unquoted atom" s
-    | Sexp.Parse_error {Sexp.location = "maybe_parse_bad_atom_pipe"; _} -> true
+    | Sexp.Parse_error {Sexp.location = "maybe_parse_bad_atom_pipe"; err_msg=_; parse_state=_ } -> true
     | _ -> false);
   parse_fail _here_ "##|"
     (function
     | Failure s -> grep "comment tokens in unquoted atom" s
-    | Sexp.Parse_error {Sexp.location = "maybe_parse_bad_atom_hash"; _} -> true
+    | Sexp.Parse_error {Sexp.location = "maybe_parse_bad_atom_hash"; err_msg=_; parse_state=_ } -> true
     | _ -> false);
   parse_fail _here_ "||#"
     (function
     | Failure s -> grep "comment tokens in unquoted atom" s
-    | Sexp.Parse_error {Sexp.location = "maybe_parse_bad_atom_pipe"; _} -> true
+    | Sexp.Parse_error {Sexp.location = "maybe_parse_bad_atom_pipe"; err_msg=_; parse_state=_ } -> true
     | _ -> false);
   parse_fail _here_ "#|" (* not terminated *)
     (function
@@ -209,7 +209,7 @@ let () =
   parse_fail _here_ "|#" (* not started *)
     (function
     | Failure s -> grep "illegal end of comment" s
-    | Sexp.Parse_error {Sexp.location = "maybe_parse_close_comment"; _} -> true
+    | Sexp.Parse_error {Sexp.location = "maybe_parse_close_comment"; err_msg=_; parse_state=_ } -> true
     | _ -> false);
   parse_fail _here_ ~no_following_sibling:true "#;" (* not followed *)
     (function
