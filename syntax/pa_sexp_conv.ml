@@ -33,6 +33,18 @@ let mk_rev_bindings loc fps =
   in
   bindings, patts, expr
 
+let sexp_type_is_recursive type_name tp =
+  Gen.type_is_recursive type_name tp
+    ~short_circuit:(function
+      | <:ctyp< sexp_opaque $_$ >> -> Some false
+      | _ -> None)
+
+let mk_full_type loc type_name tps =
+  let coll_args tp param =
+    <:ctyp@loc< $tp$ $Gen.drop_variance_annotations param$ >>
+  in
+  List.fold_left ~f:coll_args ~init:<:ctyp@loc< $lid:type_name$ >> tps
+
 let mk_bindings loc fps = mk_rev_bindings loc (List.rev fps)
 
 let unroll_cnv_fp loc var = function
@@ -58,7 +70,6 @@ let rec sig_of_tds cnv = function
 
 (* Generates the signature for type conversion to S-expressions *)
 module Sig_generate_sexp_of = struct
-
   let rec sig_of_td__loop acc = function
     | [] ->
         let loc = Ast.loc_of_ctyp acc in
@@ -168,7 +179,8 @@ module Generate_sexp_of = struct
 
   type record_field_handler = [ `keep | `drop_default | `drop_if of Ast.expr ]
 
-  let record_field_handlers = Hashtbl.create 0
+  let record_field_handlers : (Loc.t, record_field_handler) Hashtbl.t =
+    Hashtbl.create 0
 
   let get_record_field_handler loc =
     try Hashtbl.find record_field_handlers loc
@@ -402,7 +414,7 @@ module Generate_sexp_of = struct
 
   let sexp_of_record flds_ctyp =
     let flds = Ast.list_of_ctyp flds_ctyp [] in
-    let rec coll (patt, expr) = function
+    let coll (patt, expr) = function
       | <:ctyp@loc< $lid:name$ : mutable sexp_option $tp$ >>
       | <:ctyp@loc< $lid:name$ : sexp_option $tp$ >> ->
           let patt = mk_rec_patt loc patt name in
@@ -494,6 +506,7 @@ module Generate_sexp_of = struct
   (* Generate code from type definitions *)
 
   let sexp_of_td loc type_name tps rhs =
+    let full_type = mk_full_type loc type_name tps in
     let body =
       let rec loop tp =
         Gen.switch_tp_def tp
@@ -508,8 +521,9 @@ module Generate_sexp_of = struct
       | `Fun fun_expr ->
           (* Prevent violation of value restriction and problems with
              recursive types by eta-expanding function definitions *)
-          <:expr@loc< fun [ v -> $fun_expr$ v ] >>
-      | `Match matchings -> <:expr@loc< fun [ $matchings$ ] >>
+          <:expr@loc< fun [ (v : $full_type$) -> $fun_expr$ v ] >>
+      | `Match matchings ->
+          <:expr@loc< (fun [ $matchings$ ] : $full_type$ -> Sexplib.Sexp.t) >>
     in
     let mk_pat id = <:patt@loc< $lid:id$ >> in
     let patts =
@@ -531,7 +545,7 @@ module Generate_sexp_of = struct
       match tds with
       | Ast.TyDcl (loc, type_name, tps, rhs, _cl) ->
           sexp_of_td loc type_name tps rhs,
-          Gen.type_is_recursive type_name rhs, loc
+          sexp_type_is_recursive type_name rhs, loc
       | Ast.TyAnd (loc, _, _) as tds -> sexp_of_tds tds, true, loc
       | _ -> assert false  (* impossible *)
     in
@@ -540,10 +554,6 @@ module Generate_sexp_of = struct
 
   (* Add code generator to the set of known generators *)
   let () = Pa_type_conv.add_generator "sexp_of" sexp_of
-
-  let string_of_ident id =
-    let str_lst = Gen.get_rev_id_path id [] in
-    String.concat ~sep:"." str_lst
 
   let sexp_of_exn tp =
     let get_full_cnstr cnstr = Pa_type_conv.get_conv_path () ^ "." ^ cnstr in
@@ -1253,12 +1263,7 @@ module Generate_of_sexp = struct
       is_alias_ref := true;
       type_of_sexp tp
     in
-    let coll_args tp param =
-      <:ctyp@loc< $tp$ $Gen.drop_variance_annotations param$ >>
-    in
-    let full_type =
-      List.fold_left ~f:coll_args ~init:<:ctyp@loc< $lid:type_name$ >> tps
-    in
+    let full_type = mk_full_type loc type_name tps in
     let is_variant_ref = ref false in
     let handle_variant row_fields =
       is_variant_ref := true;
@@ -1331,7 +1336,7 @@ module Generate_of_sexp = struct
     let external_fun_patt = <:patt@loc< $lid:type_name ^ "_of_sexp"$ >> in
     let external_fun_body =
       Gen.abstract loc arg_patts
-        <:expr@loc< fun sexp -> $pre_external_fun_body$ >>
+        <:expr@loc< fun sexp -> (($pre_external_fun_body$) : $full_type$) >>
     in
     let external_binding =
       <:binding@loc< $external_fun_patt$ = $external_fun_body$ >>
@@ -1350,7 +1355,7 @@ module Generate_of_sexp = struct
         let internal_binding, external_binding =
           td_of_sexp loc type_name tps rhs
         in
-        let recursive = Gen.type_is_recursive type_name rhs in
+        let recursive = sexp_type_is_recursive type_name rhs in
         if recursive then
           <:str_item@loc<
             value rec $internal_binding$

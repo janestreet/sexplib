@@ -30,7 +30,7 @@
       else d2 - 48 in
     val1 * 16 + val2
 
-  let found_newline ({ lex_curr_p; _ } as lexbuf) diff =
+  let found_newline ({ lex_curr_p } as lexbuf) diff =
     lexbuf.lex_curr_p <-
       {
         lex_curr_p with
@@ -38,10 +38,10 @@
         pos_bol = lex_curr_p.pos_cnum - diff;
       }
 
-  let lexeme_len lexbuf = lexeme_end lexbuf - lexeme_start lexbuf
+  let lexeme_len { lex_start_pos; lex_curr_pos } = lex_curr_pos - lex_start_pos
 
   let main_failure lexbuf msg =
-    let { pos_lnum; pos_bol; pos_cnum; _ } = lexeme_start_p lexbuf in
+    let { pos_lnum; pos_bol; pos_cnum } = lexeme_start_p lexbuf in
     let msg =
       sprintf
         "Sexplib.Lexer.main: %s at line %d char %d"
@@ -106,7 +106,7 @@ and scan_string buf start = parse
       {
         let v = dec_code c1 c2 c3 in
         if v > 255 then (
-          let { pos_lnum; pos_bol; pos_cnum; _ } = lexeme_end_p lexbuf in
+          let { pos_lnum; pos_bol; pos_cnum } = lexeme_end_p lexbuf in
           let msg =
             sprintf
               "Sexplib.Lexer.scan_string: \
@@ -137,8 +137,8 @@ and scan_string buf start = parse
       }
   | ([^ '\\' '"'] # lf)+
       {
-        let ofs = lexeme_start lexbuf in
-        let len = lexeme_end lexbuf - ofs in
+        let ofs = lexbuf.lex_start_pos in
+        let len = lexbuf.lex_curr_pos - ofs in
         Buffer.add_substring buf lexbuf.lex_buffer ofs len;
         scan_string buf start lexbuf
       }
@@ -181,7 +181,7 @@ and scan_block_comment buf locs = parse
       {
         match locs with
         | [] -> assert false
-        | { pos_lnum; pos_bol; pos_cnum; _ } :: _ ->
+        | { pos_lnum; pos_bol; pos_cnum } :: _ ->
             let msg =
               sprintf "Sexplib.Lexer.scan_block_comment: \
                 unterminated block comment at line %d char %d"

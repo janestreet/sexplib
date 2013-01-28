@@ -22,3 +22,12 @@
 )
 
 #| #| Nested |# block comment "|#" |#
+
+#| "" |#
+#| ""|#
+#|"" |#
+#|""|#
+
+#| "asdf" "asdf" |#
+
+(something #| ; |# () "something else")

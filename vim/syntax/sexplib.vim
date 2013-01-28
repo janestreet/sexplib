@@ -3,7 +3,8 @@
 " Filenames:    *.sexp
 " Maintainers:  Markus Mottl      <markus.mottl@gmail.com>
 " URL:          http://www.ocaml.info/vim/syntax/sexplib.vim
-" Last Change:  2012 Apr 24 - Added support for new comment styles (MM)
+" Last Change:  2012 Jun 20 - Fixed a block comment highlighting bug (MM)
+"               2012 Apr 24 - Added support for new comment styles (MM)
 "               2009 Apr 02 - First release (MM)
 
 " For version 5.x: Clear all syntax items
@@ -19,7 +20,7 @@ syn case match
 
 " Comments
 syn keyword  sexplibTodo contained TODO FIXME XXX NOTE
-syn region   sexplibBlockComment matchgroup=sexplibComment start="#|" matchgroup=sexplibComment end="|#" contains=ALLBUT,sexplibQuotedAtom,sexplibUnquotedAtom,sexplibEncl
+syn region   sexplibBlockComment matchgroup=sexplibComment start="#|" matchgroup=sexplibComment end="|#" contains=ALLBUT,sexplibQuotedAtom,sexplibUnquotedAtom,sexplibEncl,sexplibComment
 syn match    sexplibSexpComment "#;" skipwhite skipempty nextgroup=sexplibQuotedAtomComment,sexplibUnquotedAtomComment,sexplibListComment,sexplibComment
 syn region   sexplibQuotedAtomComment start=+"+ skip=+\\\\\|\\"+ end=+"+ contained
 syn match    sexplibUnquotedAtomComment /\([^;()" \t#|]\|#[^;()" \t|]\||[^;()" \t#]\)[^;()" \t]*/ contained

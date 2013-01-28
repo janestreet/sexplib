@@ -2,7 +2,7 @@
 OASISFormat:  0.3
 OCamlVersion: >= 3.12.1
 Name:         sexplib
-Version:      108.00.01
+Version:      108.00.02
 Synopsis:     automated S-expression conversion
 Authors:      Markus Mottl,
               Martin Sandin
@@ -12,24 +12,13 @@ LicenseFile:  LICENSE
 Plugins:      StdFiles (0.3), DevFiles (0.3), META (0.3)
 BuildTools:   ocamlbuild
 XStdFilesAUTHORS: false
-XStdFilesINSTALLFilename: INSTALL
 XStdFilesREADME: false
 
 Library sexplib
   Path:               lib
   FindlibName:        sexplib
   Pack:               true
-  Modules:            Type,
-                      Parser,
-                      Lexer,
-                      Pre_sexp,
-                      Sexp_intf,
-                      Sexp,
-                      Path,
-                      Conv,
-                      Conv_error,
-                      Exn_magic,
-                      Std
+  Modules:            Conv,Conv_error,Exn_magic,Path,Pre_sexp,Sexp,Sexp_intf,Std,Type, Parser, Lexer
   BuildDepends:       unix,bigarray,num
   XMETARequires:      unix,bigarray,num
 
@@ -48,7 +37,7 @@ Library sexplib_top
   Path:               top
   FindlibName:        top
   FindlibParent:      sexplib
-  Modules:            Install_printers
+  Modules:            Sexplib_install_printers
   XMETARequires:      sexplib
   XMETADescription:   Toplevel printers for S-expressions
 
