@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: c7cb8fb2e8cd104e136ca9ca528f3ead) *)
+(* DO NOT EDIT (digest: e7f351766e804fe5f874905ef4e5cc16) *)
 This is the INSTALL file for the sexplib distribution.
 
 This package uses OASIS to generate its build system. See section OASIS for
@@ -10,7 +10,7 @@ Dependencies
 
 In order to compile this package, you will need:
 * ocaml (>= 3.12.1) for all, test conv, test sexp, doc sexplib
-* findlib
+* findlib (>= 1.3.2)
 * type_conv (>= 3.0.5) for library pa_sexp_conv
 
 Installing

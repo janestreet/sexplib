@@ -63,6 +63,13 @@ with sexp
 
 type empty with sexp
 
+type 'a function_field_with_labeled_argument = { f : x:'a -> 'a } with sexp
+
+(* Test non-regular types *)
+type 'a nonregular = Leaf of 'a | Branch of ('a * 'a) nonregular with sexp
+type ('a, 'b) nonregular_with_variant = Branch of ([ 'a list variant ], 'b) nonregular_with_variant
+with sexp
+
 (* Test variance annotations *)
 
 module type S = sig
@@ -98,6 +105,8 @@ and 'a t =
     a : 'a variant;
     foo : int;
     bar : (my_float * string) list option;
+    default_1 : int with default(1), sexp_drop_default;
+    default_2 : int with default(2), sexp_drop_if((=) 2);
     sexp_option : int sexp_option;
     sexp_list : int sexp_list;
     sexp_bool : sexp_bool;
@@ -120,6 +129,9 @@ type fun_test = int -> unit with sexp_of
 
 open Path
 
+type does_sexp_array_type_check =
+  { does_sexp_array_type_check_field : string sexp_array; } with sexp
+
 let main () =
   let make_t a =
     {
@@ -127,6 +139,8 @@ let main () =
       a = a;
       foo = 3;
       bar = Some [(3.1, "foo")];
+      default_1 = 1;
+      default_2 = 2;
       sexp_option = None;
       sexp_list = [];
       sexp_bool = true;

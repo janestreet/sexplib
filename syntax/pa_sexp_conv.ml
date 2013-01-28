@@ -33,17 +33,16 @@ let mk_rev_bindings loc fps =
   in
   bindings, patts, expr
 
+let mk_full_type loc type_name tps =
+  let coll_args tp _param = <:ctyp@loc< $tp$ _ >> in
+  List.fold_left ~f:coll_args ~init:<:ctyp@loc< $lid:type_name$ >> tps
+;;
+
 let sexp_type_is_recursive type_name tp =
   Gen.type_is_recursive type_name tp
     ~short_circuit:(function
       | <:ctyp< sexp_opaque $_$ >> -> Some false
       | _ -> None)
-
-let mk_full_type loc type_name tps =
-  let coll_args tp param =
-    <:ctyp@loc< $tp$ $Gen.drop_variance_annotations param$ >>
-  in
-  List.fold_left ~f:coll_args ~init:<:ctyp@loc< $lid:type_name$ >> tps
 
 let mk_bindings loc fps = mk_rev_bindings loc (List.rev fps)
 
@@ -65,6 +64,27 @@ let rec sig_of_tds cnv = function
       <:sig_item@loc< $sig_of_tds cnv tp1$; $sig_of_tds cnv tp2$ >>
   | _ -> assert false  (* impossible *)
 
+let type_app base_type types =
+  List.fold_left types ~init:base_type ~f:(fun acc typ ->
+    let loc = Ast.loc_of_ctyp typ in
+    <:ctyp@loc< $acc$ $typ$ >>)
+;;
+
+(* Generates the quantified type [ ! 'a .. 'z . (make_mono_type t ('a .. 'z)) ], or [None]
+   if there are no type parameters.
+
+   A quantified type annotation is required for of_sexp and to_sexp functions for
+   non-regular types, such as [ type t 'a = [ A of 'a | B of t 'a 'a ] ]. *)
+let mk_poly_type make_mono_type loc type_name type_params =
+  let type_params = List.map type_params ~f:Gen.drop_variance_annotations in
+  match type_params with
+  | [] -> None
+  | first :: rest ->
+    let unquantified_type = make_mono_type <:ctyp@loc< $lid:type_name$ >> type_params in
+    let loc = Ast.loc_of_ctyp unquantified_type in
+    (* It's confusing that you need an application between the '!' and the '.'. I would
+       have expected a list. *)
+    Some <:ctyp@loc< ! $type_app first rest$ . $unquantified_type$ >>
 
 (* Generators for S-expressions *)
 
@@ -84,16 +104,16 @@ module Sig_generate_sexp_of = struct
     let sexp_of = sig_of_td__loop <:ctyp@loc< $lid:type_name$ >> tps in
     <:sig_item@loc< value $lid: "sexp_of_" ^ type_name$ : $sexp_of$ >>
 
-  let mk_sig tds = <:sig_item< $sig_of_tds sig_of_td tds$ >>
+  let mk_sig _rec tds = <:sig_item< $sig_of_tds sig_of_td tds$ >>
 
-  let () = Pa_type_conv.add_sig_generator "sexp_of" mk_sig
+  let () = Pa_type_conv.add_sig_generator ~delayed:true "sexp_of" mk_sig
 
-  let mk_sig_exn = function
+  let mk_sig_exn _rec = function
     | <:ctyp@loc< $uid:_$ >> | <:ctyp@loc< $uid:_$ of $_$ >> ->
         <:sig_item@loc< >>
     | tp -> Gen.error tp ~fn:"mk_sig_exn" ~msg:"unknown type"
 
-  let () = Pa_type_conv.add_sig_generator ~is_exn:true "sexp" mk_sig_exn
+  let () = Pa_type_conv.add_sig_generator ~delayed:true ~is_exn:true "sexp" mk_sig_exn
 end
 
 
@@ -145,31 +165,25 @@ module Sig_generate_of_sexp = struct
           value $lid: type_name ^ "_of_sexp__"$ : $of_sexp$;
         >>
 
-  let mk_sig with_poly tds =
+  let mk_sig with_poly _rec tds =
     <:sig_item< $sig_of_tds (sig_of_td with_poly) tds$ >>
 
-  let () = Pa_type_conv.add_sig_generator "of_sexp" (mk_sig false)
-  let () = Pa_type_conv.add_sig_generator "of_sexp_poly" (mk_sig true)
+  let () = Pa_type_conv.add_sig_generator ~delayed:true "of_sexp" (mk_sig false)
+  let () = Pa_type_conv.add_sig_generator ~delayed:true "of_sexp_poly" (mk_sig true)
 end
 
 
 (* Generates the signature for type conversion to S-expressions *)
 module Sig_generate = struct
   let () =
-    Pa_type_conv.add_sig_generator "sexp" (fun tds ->
-      let loc = Ast.loc_of_ctyp tds in
-      <:sig_item@loc<
-        $Sig_generate_sexp_of.mk_sig tds$;
-        $Sig_generate_of_sexp.mk_sig false tds$
-      >>)
+    Pa_type_conv.add_sig_set
+      "sexp"
+      ~set:["sexp_of"; "of_sexp"]
 
   let () =
-    Pa_type_conv.add_sig_generator "sexp_poly" (fun tds ->
-      let loc = Ast.loc_of_ctyp tds in
-      <:sig_item@loc<
-        $Sig_generate_sexp_of.mk_sig tds$;
-        $Sig_generate_of_sexp.mk_sig true tds$
-      >>)
+    Pa_type_conv.add_sig_set
+      "sexp_poly"
+      ~set:["sexp_of"; "of_sexp_poly"]
 end
 
 
@@ -179,8 +193,9 @@ module Generate_sexp_of = struct
 
   type record_field_handler = [ `keep | `drop_default | `drop_if of Ast.expr ]
 
-  let record_field_handlers : (Loc.t, record_field_handler) Hashtbl.t =
-    Hashtbl.create 0
+  let record_field_handlers
+      : (Loc.t, record_field_handler) Hashtbl.t
+      = Hashtbl.create 0
 
   let get_record_field_handler loc =
     try Hashtbl.find record_field_handlers loc
@@ -191,13 +206,15 @@ module Generate_sexp_of = struct
       Loc.raise loc (Failure "sexp record field handler defined twice")
 
   let () =
-    Pa_type_conv.add_record_field_generator "sexp_drop_default" (fun loc ->
+    Pa_type_conv.add_record_field_generator "sexp_drop_default" (fun tp ->
+      let loc = Ast.loc_of_ctyp tp in
       check_record_field_handler loc;
       Hashtbl.replace record_field_handlers ~key:loc ~data:`drop_default)
 
   let () =
     Pa_type_conv.add_record_field_generator_with_arg "sexp_drop_if"
-      Syntax.expr (fun expr_opt loc ->
+      Syntax.expr (fun expr_opt tp ->
+        let loc = Ast.loc_of_ctyp tp in
         check_record_field_handler loc;
         let test =
           match expr_opt with
@@ -220,14 +237,16 @@ module Generate_sexp_of = struct
 
   (* Conversion of types *)
   let rec sexp_of_type = function
+    | <:ctyp@loc< _ >> ->
+        `Fun <:expr@loc< fun _ -> Sexp.Atom "_" >>
     | <:ctyp@loc< sexp_opaque $_$ >> ->
         `Fun <:expr@loc< Sexplib.Conv.sexp_of_opaque >>
     | <:ctyp@loc< $tp1$ $tp2$ >> -> `Fun (sexp_of_appl_fun loc tp1 tp2)
     | <:ctyp< ( $tup:tp$ ) >> -> sexp_of_tuple tp
     | <:ctyp@loc< '$parm$ >> -> `Fun <:expr@loc< $lid:"_of_" ^ parm$ >>
     | <:ctyp@loc< $id:id$ >> -> `Fun (sexp_of_path_fun loc id)
-    | <:ctyp@loc< $_$ -> $_$ >> as arrow ->
-        `Fun <:expr@loc< fun (_f : $arrow$) ->
+    | <:ctyp@loc< $_$ -> $_$ >> ->
+        `Fun <:expr@loc< fun _f ->
           Sexplib.Conv.sexp_of_fun Pervasives.ignore >>
     | <:ctyp< [< $row_fields$ ] >> | <:ctyp< [> $row_fields$ ] >>
     | <:ctyp< [= $row_fields$ ] >> -> sexp_of_variant row_fields
@@ -376,7 +395,7 @@ module Generate_sexp_of = struct
     let p = <:patt@loc< $lid:name$ = $lid:"v_" ^ name$ >> in
     <:patt@loc< $patt$; $p$ >>
 
-  let sexp_of_record_field patt expr name tp ?sexp_of test =
+  let sexp_of_record_field patt expr name tp ?sexp_of is_empty_expr =
     let loc = Ast.loc_of_ctyp tp in
     let patt = mk_rec_patt loc patt name in
     let cnv_expr =
@@ -394,7 +413,7 @@ module Generate_sexp_of = struct
       let v_name = <:expr@loc< $lid: "v_" ^ name$ >> in
       <:expr@loc<
         let bnds =
-          if $test$ $v_name$ then bnds
+          if $is_empty_expr loc v_name$ then bnds
           else
             let arg = $cnv_expr$ $v_name$ in
             let bnd =
@@ -403,87 +422,102 @@ module Generate_sexp_of = struct
             [ bnd :: bnds ]
         in
         $expr$
-      >>
+        >>
     in
     patt, expr
 
   let sexp_of_default_field patt expr name tp ?sexp_of default =
-    let loc = Ast.loc_of_expr default in
     sexp_of_record_field patt expr name tp ?sexp_of
-      <:expr@loc< (=) $default$ >>
+      (fun loc expr -> <:expr@loc< Pervasives.(=) $default$ $expr$ >>)
 
   let sexp_of_record flds_ctyp =
     let flds = Ast.list_of_ctyp flds_ctyp [] in
+    let list_empty_expr loc lst = <:expr@loc<
+      match $lst$ with
+        [ [] -> True
+        | _ -> False
+        ]
+        >>
+    in
+    let array_empty_expr loc arr = <:expr@loc<
+      match $arr$ with
+        [ [||] -> True
+        | _ -> False
+        ]
+        >>
+    in
     let coll (patt, expr) = function
       | <:ctyp@loc< $lid:name$ : mutable sexp_option $tp$ >>
       | <:ctyp@loc< $lid:name$ : sexp_option $tp$ >> ->
-          let patt = mk_rec_patt loc patt name in
-          let vname = <:expr@loc< v >> in
-          let cnv_expr = unroll_cnv_fp loc vname (sexp_of_type tp) in
-          let expr =
-            <:expr@loc<
-              let bnds =
-                match $lid:"v_" ^ name$ with
+        let patt = mk_rec_patt loc patt name in
+        let vname = <:expr@loc< v >> in
+        let cnv_expr = unroll_cnv_fp loc vname (sexp_of_type tp) in
+        let expr =
+          <:expr@loc<
+            let bnds =
+              match $lid:"v_" ^ name$ with
                 [ None -> bnds
                 | Some v ->
-                    let arg = $cnv_expr$ in
-                    let bnd =
-                      Sexplib.Sexp.List [Sexplib.Sexp.Atom $str:name$; arg]
-                    in
-                    [ bnd :: bnds ] ]
-              in
-              $expr$
-            >>
-          in
-          patt, expr
-      | <:ctyp@loc< $lid:name$ : mutable sexp_bool >>
-      | <:ctyp@loc< $lid:name$ : sexp_bool >> ->
-          let patt = mk_rec_patt loc patt name in
-          let expr =
-            <:expr@loc<
-              let bnds =
-                if $lid:"v_" ^ name$ then
-                  let bnd = Sexplib.Sexp.List [Sexplib.Sexp.Atom $str:name$] in
-                  [ bnd :: bnds ]
-                else bnds
-              in
-              $expr$
-            >>
-          in
-          patt, expr
-      | <:ctyp@loc< $lid:name$ : mutable sexp_list $tp$ >>
-      | <:ctyp@loc< $lid:name$ : sexp_list $tp$ >> ->
-          sexp_of_default_field patt expr name tp
-            ~sexp_of:<:expr@loc< sexp_of_list >> <:expr@loc< [] >>
-      | <:ctyp@loc< $lid:name$ : mutable sexp_array $tp$ >>
-      | <:ctyp@loc< $lid:name$ : sexp_array $tp$ >> ->
-          sexp_of_default_field patt expr name tp
-            ~sexp_of:<:expr@loc< sexp_of_array >> <:expr@loc< [||] >>
-      | <:ctyp@loc< $lid:name$ : mutable $tp$ >>
-      | <:ctyp@loc< $lid:name$ : $tp$ >> ->
-          let opt_default = Pa_type_conv.Gen.find_record_default loc in
-          let field_handler = get_record_field_handler loc in
-          begin match opt_default, field_handler with
-          | None, `drop_default -> Loc.raise loc (Failure "no default to drop")
-          | _, `drop_if test -> sexp_of_record_field patt expr name tp test
-          | Some default, `drop_default ->
-              sexp_of_default_field patt expr name tp default
-          | _, `keep ->
-              let patt = mk_rec_patt loc patt name in
-              let vname = <:expr@loc< $lid:"v_" ^ name$ >> in
-              let cnv_expr = unroll_cnv_fp loc vname (sexp_of_type tp) in
-              let expr =
-                <:expr@loc<
                   let arg = $cnv_expr$ in
                   let bnd =
                     Sexplib.Sexp.List [Sexplib.Sexp.Atom $str:name$; arg]
                   in
-                  let bnds = [ bnd :: bnds ] in
-                  $expr$
-                >>
-              in
-              patt, expr
-          end
+                  [ bnd :: bnds ] ]
+            in
+            $expr$
+            >>
+        in
+        patt, expr
+      | <:ctyp@loc< $lid:name$ : mutable sexp_bool >>
+      | <:ctyp@loc< $lid:name$ : sexp_bool >> ->
+        let patt = mk_rec_patt loc patt name in
+        let expr =
+          <:expr@loc<
+            let bnds =
+              if $lid:"v_" ^ name$ then
+                let bnd = Sexplib.Sexp.List [Sexplib.Sexp.Atom $str:name$] in
+                [ bnd :: bnds ]
+              else bnds
+            in
+            $expr$
+            >>
+        in
+        patt, expr
+      | <:ctyp@loc< $lid:name$ : mutable sexp_list $tp$ >>
+      | <:ctyp@loc< $lid:name$ : sexp_list $tp$ >> ->
+        sexp_of_record_field patt expr name tp
+          ~sexp_of:<:expr@loc< sexp_of_list >> list_empty_expr
+      | <:ctyp@loc< $lid:name$ : mutable sexp_array $tp$ >>
+      | <:ctyp@loc< $lid:name$ : sexp_array $tp$ >> ->
+        sexp_of_record_field patt expr name tp
+          ~sexp_of:<:expr@loc< sexp_of_array >> array_empty_expr
+      | <:ctyp@loc< $lid:name$ : mutable $tp$ >>
+      | <:ctyp@loc< $lid:name$ : $tp$ >> ->
+        let opt_default = Pa_type_conv.Gen.find_record_default loc in
+        let field_handler = get_record_field_handler loc in
+        begin match opt_default, field_handler with
+        | None, `drop_default -> Loc.raise loc (Failure "no default to drop")
+        | _, `drop_if test ->
+          sexp_of_record_field patt expr name tp
+              (fun loc expr -> <:expr@loc< $test$ $expr$>>)
+        | Some default, `drop_default ->
+          sexp_of_default_field patt expr name tp default
+        | _, `keep ->
+            let patt = mk_rec_patt loc patt name in
+            let vname = <:expr@loc< $lid:"v_" ^ name$ >> in
+            let cnv_expr = unroll_cnv_fp loc vname (sexp_of_type tp) in
+            let expr =
+              <:expr@loc<
+                let arg = $cnv_expr$ in
+                let bnd =
+                  Sexplib.Sexp.List [Sexplib.Sexp.Atom $str:name$; arg]
+                in
+                let bnds = [ bnd :: bnds ] in
+                $expr$
+              >>
+            in
+            patt, expr
+        end
       | _ -> assert false  (* impossible *)
     in
     let loc = Ast.loc_of_ctyp flds_ctyp in
@@ -506,7 +540,6 @@ module Generate_sexp_of = struct
   (* Generate code from type definitions *)
 
   let sexp_of_td loc type_name tps rhs =
-    let full_type = mk_full_type loc type_name tps in
     let body =
       let rec loop tp =
         Gen.switch_tp_def tp
@@ -521,17 +554,21 @@ module Generate_sexp_of = struct
       | `Fun fun_expr ->
           (* Prevent violation of value restriction and problems with
              recursive types by eta-expanding function definitions *)
-          <:expr@loc< fun [ (v : $full_type$) -> $fun_expr$ v ] >>
+          <:expr@loc< fun [ v -> $fun_expr$ v ] >>
       | `Match matchings ->
-          <:expr@loc< (fun [ $matchings$ ] : $full_type$ -> Sexplib.Sexp.t) >>
+          <:expr@loc< fun [ $matchings$ ] >>
     in
-    let mk_pat id = <:patt@loc< $lid:id$ >> in
     let patts =
       List.map tps
         ~f:(fun ty -> <:patt@loc< $lid:"_of_" ^ Gen.get_tparam_id ty$>>)
     in
-    let bnd = mk_pat ("sexp_of_" ^ type_name) in
-    <:binding@loc< $bnd$ = $Gen.abstract loc patts body$ >>
+    let body = Gen.abstract loc patts body in
+    let body =
+      match mk_poly_type Sig_generate_sexp_of.sig_of_td__loop loc type_name tps with
+      | None -> body
+      | Some typ -> <:expr@loc< ( $body$ : $typ$ ) >>
+    in
+    <:binding@loc< $lid:"sexp_of_" ^ type_name$ = $body$ >>
 
   let rec sexp_of_tds = function
     | Ast.TyDcl (loc, type_name, tps, rhs, _cl) ->
@@ -540,13 +577,13 @@ module Generate_sexp_of = struct
         <:binding@loc< $sexp_of_tds tp1$ and $sexp_of_tds tp2$ >>
     | _ -> assert false  (* impossible *)
 
-  let sexp_of tds =
+  let sexp_of rec_ tds =
     let binding, recursive, loc =
       match tds with
       | Ast.TyDcl (loc, type_name, tps, rhs, _cl) ->
           sexp_of_td loc type_name tps rhs,
-          sexp_type_is_recursive type_name rhs, loc
-      | Ast.TyAnd (loc, _, _) as tds -> sexp_of_tds tds, true, loc
+          rec_ && sexp_type_is_recursive type_name rhs, loc
+      | Ast.TyAnd (loc, _, _) as tds -> sexp_of_tds tds, rec_, loc
       | _ -> assert false  (* impossible *)
     in
     if recursive then <:str_item@loc< value rec $binding$ >>
@@ -555,7 +592,7 @@ module Generate_sexp_of = struct
   (* Add code generator to the set of known generators *)
   let () = Pa_type_conv.add_generator "sexp_of" sexp_of
 
-  let sexp_of_exn tp =
+  let sexp_of_exn _rec tp =
     let get_full_cnstr cnstr = Pa_type_conv.get_conv_path () ^ "." ^ cnstr in
     let expr =
       match tp with
@@ -697,9 +734,7 @@ module Generate_of_sexp = struct
     | <:ctyp< ( $tup:tp$ ) >> -> tuple_of_sexp tp
     | <:ctyp@loc< '$parm$ >> -> `Fun <:expr@loc< $lid:"_of_" ^ parm$ >>
     | <:ctyp@loc< $id:id$ >> -> `Fun (path_of_sexp_fun loc id)
-    | <:ctyp@loc< $_$ -> $_$ >> as arrow ->
-        `Fun <:expr@loc< fun sexp ->
-          (Sexplib.Conv.fun_of_sexp sexp : $arrow$) >>
+    | <:ctyp@loc< $_$ -> $_$ >> -> `Fun <:expr@loc< Sexplib.Conv.fun_of_sexp >>
     | <:ctyp< [< $row_fields$ ] >> | <:ctyp< [> $row_fields$ ] >>
     | <:ctyp< [= $row_fields$ ] >> ->
         variant_of_sexp ?full_type:None row_fields
@@ -762,7 +797,7 @@ module Generate_of_sexp = struct
           handle_variant_inh full_type match_last other_matches inh
     in
     let other_matches =
-      mk_variant_other_matches loc rev_structs "ptag_no_args"
+      mk_variant_other_matches loc rev_structs "ptag_takes_args"
     in
     let match_atoms_inhs, match_last =
       List.fold_left ~f:coll ~init:(other_matches, false) rev_atoms_inhs in
@@ -859,8 +894,15 @@ module Generate_of_sexp = struct
 
   (* Generate matching code for variants *)
   and variant_of_sexp ?full_type row_tp =
+    let rec replace_params_with_underscores = function
+      | <:ctyp@loc< $a$ $_$ >> -> <:ctyp@loc< $replace_params_with_underscores a$ _ >>
+      | x -> x
+    in
     let loc = Ast.loc_of_ctyp row_tp in
     let row_fields = Ast.list_of_ctyp row_tp [] in
+    let row_tp =
+      Ast.tyOr_of_list (List.map row_fields ~f:replace_params_with_underscores)
+    in
     let is_contained, full_type =
       match full_type with
       | None -> true, <:ctyp@loc< [= $row_tp$ ] >>
@@ -1252,15 +1294,13 @@ module Generate_of_sexp = struct
 
   (* Generate code from type definitions *)
 
-  let rec is_poly_call = function
-    | <:expr< $f$ $_$ >> -> is_poly_call f
-    | <:expr< $lid:name$ >> -> name.[0] = '_' && name.[1] = 'o'
-    | _ -> false
-
   let td_of_sexp loc type_name tps rhs =
-    let is_alias_ref = ref false in
+    let alias_ref = ref `Not_an_alias in
     let handle_alias tp =
-      is_alias_ref := true;
+      alias_ref :=
+        (match tp with
+        | <:ctyp< '$_$ >> -> `Alias `Type_var
+        | _ -> `Alias `Type_constructor);
       type_of_sexp tp
     in
     let full_type = mk_full_type loc type_name tps in
@@ -1286,6 +1326,7 @@ module Generate_of_sexp = struct
           <:expr@loc< fun [ t -> $fun_expr$ t ] >>
       | `Match matchings -> <:expr@loc< fun [ $matchings$ ] >>
     in
+    let external_name = type_name ^ "_of_sexp" in
     let internal_name = type_name ^ "_of_sexp__" in
     let arg_patts, arg_exprs =
       List.split (
@@ -1295,12 +1336,24 @@ module Generate_of_sexp = struct
           )
           tps)
     in
-    let with_poly_call = !is_alias_ref && is_poly_call body in
+    let with_poly_call =
+      match !alias_ref with
+      | `Not_an_alias
+      | `Alias `Type_constructor -> false
+      | `Alias `Type_var -> true in
     let internal_fun_body =
       let full_type_name =
         sprintf "%s.%s" (Pa_type_conv.get_conv_path ()) type_name
       in
       if with_poly_call then
+        (* special case for type definitions whose bodies are type variables, like:
+             type ('a, 'b) t = 'a
+           because
+           - they can used in polymorphic variants: [ ([`A], int) t | `B ]
+           - the way sexplib works, it cannot handle backtracking in these cases,
+             (because we only receive as parameter sexp_of_'a but not sexp_of_'a__ presumably)
+             so it is better to emit an error rather than do something weird
+        *)
         Gen.abstract loc arg_patts
           <:expr@loc<
             fun sexp ->
@@ -1326,21 +1379,26 @@ module Generate_of_sexp = struct
       if with_poly_call then
         <:expr@loc< try $body$ sexp with [ $no_variant_match_mc$ ] >>
       (* Type alias may refer to variant, therefore same handling here! *)
-      else if !is_variant_ref || !is_alias_ref then
+      else if !is_variant_ref || !alias_ref = `Alias `Type_constructor then
         <:expr@loc< try $internal_call$ with [ $no_variant_match_mc$ ] >>
       else internal_call
     in
-    let internal_binding =
-      <:binding@loc< $lid:internal_name$ = $internal_fun_body$ >>
-    in
-    let external_fun_patt = <:patt@loc< $lid:type_name ^ "_of_sexp"$ >> in
     let external_fun_body =
       Gen.abstract loc arg_patts
-        <:expr@loc< fun sexp -> (($pre_external_fun_body$) : $full_type$) >>
+        <:expr@loc< fun sexp -> ($pre_external_fun_body$) >>
     in
-    let external_binding =
-      <:binding@loc< $external_fun_patt$ = $external_fun_body$ >>
+    let type_of_of_sexp =
+      mk_poly_type Sig_generate_of_sexp.sig_of_td__loop loc type_name tps
     in
+    let maybe_annotate expr =
+      match type_of_of_sexp with
+      | None -> expr
+      | Some typ -> <:expr@loc< ( $expr$ : $typ$ ) >>
+    in
+    let internal_fun_body = maybe_annotate internal_fun_body in
+    let external_fun_body = maybe_annotate external_fun_body in
+    let internal_binding = <:binding@loc< $lid:internal_name$ = $internal_fun_body$ >> in
+    let external_binding = <:binding@loc< $lid:external_name$ = $external_fun_body$ >> in
     internal_binding, external_binding
 
   let rec tds_of_sexp acc = function
@@ -1350,21 +1408,21 @@ module Generate_of_sexp = struct
     | _ -> assert false  (* impossible *)
 
   (* Generate code from type definitions *)
-  let of_sexp = function
+  let of_sexp rec_ = function
     | Ast.TyDcl (loc, type_name, tps, rhs, _cl) ->
         let internal_binding, external_binding =
           td_of_sexp loc type_name tps rhs
         in
-        let recursive = sexp_type_is_recursive type_name rhs in
-        if recursive then
+        let is_recursive = rec_ && sexp_type_is_recursive type_name rhs in
+        if is_recursive then
           <:str_item@loc<
             value rec $internal_binding$
-            and $external_binding$
+            and $external_binding$;
           >>
         else
           <:str_item@loc<
             value $internal_binding$;
-            value $external_binding$
+            value $external_binding$;
           >>
     | Ast.TyAnd (loc, _, _) as tds ->
         let two_bindings = tds_of_sexp [] tds in
@@ -1372,7 +1430,14 @@ module Generate_of_sexp = struct
           List.map ~f:(fun (b1, b2) -> <:binding@loc< $b1$ and $b2$ >>)
             two_bindings
         in
-        <:str_item@loc< value rec $list:bindings$ >>
+        if rec_ then
+          <:str_item@loc<
+            value rec $list:bindings$;
+          >>
+        else
+          <:str_item@loc<
+            value $list:bindings$;
+          >>
     | _ -> assert false  (* impossible *)
 
   (* Add code generator to the set of known generators *)
@@ -1412,11 +1477,6 @@ end
 
 (* Add "of_sexp" and "sexp_of" as "sexp" to the set of generators *)
 let () =
-  Pa_type_conv.add_generator
+  Pa_type_conv.add_str_set
     "sexp"
-    (fun tds ->
-      let loc = Ast.loc_of_ctyp tds in
-      <:str_item@loc<
-        $Generate_of_sexp.of_sexp tds$; $Generate_sexp_of.sexp_of tds$
-      >>
-    )
+    ~set:["of_sexp"; "sexp_of"]

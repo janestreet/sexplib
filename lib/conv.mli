@@ -335,7 +335,7 @@ val opaque_of_sexp : Sexp.t -> 'a
 (** [opaque_of_sexp sexp] @raise Of_sexp_error when attempting to
     convert an S-expression to an opaque value. *)
 
-val fun_of_sexp : Sexp.t -> ('a -> 'b)
+val fun_of_sexp : Sexp.t -> 'a
 (** [fun_of_sexp sexp] @raise Of_sexp_error when attempting to
     convert an S-expression to a function. *)
 

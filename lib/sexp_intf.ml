@@ -39,10 +39,6 @@ module type S = sig
       S-expressions from lex buffer [lexbuf] using the optional string
       buffer [buf] for storing intermediate strings. *)
 
-  val scan_rev_sexps : ?buf : Buffer.t -> Lexing.lexbuf -> t list
-  (** [scan_rev_sexps ?buf lexbuf] same as {!scan_sexps}, but returns the
-      reversed list and is slightly more efficient. *)
-
   val scan_iter_sexps :
     ?buf : Buffer.t -> f : (t -> unit) -> Lexing.lexbuf -> unit
   (** [scan_iter_sexps ?buf ~f lexbuf] iterates over all whitespace
@@ -595,4 +591,63 @@ module type S = sig
   (** [subst_found sexp ~subst found] @return the S-expression that
       results from substituting [subst] within S-expression [sexp]
       at the location described by [found]. *)
+
+  (** S-expressions annotated with relative source positions and comments *)
+  module With_layout : sig
+
+    (* relative source positions *)
+    type pos = Src_pos.Relative.t = { row : int; col : int }
+    val sexp_of_pos : pos -> Type.t
+
+    (** S-expressions annotated with relative source positions and comments *)
+    type t =
+      | Atom of pos * string * string option (* second is quoted representation *)
+      | List of pos * t_or_comment list * pos (* positions of left and right parens *)
+    and t_or_comment =
+      | Sexp of t
+      | Comment of comment
+    and comment =
+      | Plain_comment of pos * string (* line or block comment *)
+      | Sexp_comment of pos * comment list * t (* position of #! *)
+
+    val sexp_of_t            : t -> Type.t
+    val sexp_of_comment      : comment -> Type.t
+    val sexp_of_t_or_comment : t_or_comment -> Type.t
+
+    module Forget : sig
+      val t             : t -> Type.t
+      val t_or_comment  : t_or_comment -> Type.t option
+      val t_or_comments : t_or_comment list -> Type.t list
+    end
+
+
+    module Render : sig
+      type asexp
+      type 'a t (* monad for position-respecting asexp rendering *)
+      val return : 'a -> 'a t
+      val bind : 'a t -> ('a -> 'b t) -> 'b t
+      val sexp : asexp -> unit t (* assumes that positions in [asexp] are relative *)
+      val run : (char -> unit) -> unit t -> unit
+    end
+      with type asexp := t_or_comment
+
+    module Parser : sig
+      type token
+      val sexp      : (Lexing.lexbuf -> token) -> Lexing.lexbuf -> t_or_comment
+      val sexp_opt  : (Lexing.lexbuf -> token) -> Lexing.lexbuf -> t_or_comment option
+      val sexps     : (Lexing.lexbuf -> token) -> Lexing.lexbuf -> t_or_comment list
+      val rev_sexps : (Lexing.lexbuf -> token) -> Lexing.lexbuf -> t_or_comment list
+      (* for debugging only, cannot be used otherwise anyway *)
+      val sexps_abs :
+        (Lexing.lexbuf -> token)
+        -> Lexing.lexbuf
+        -> Type_with_layout.Parsed.t_or_comment list
+    end
+
+    module Lexer : sig
+      val main : ?buf:Buffer.t -> Lexing.lexbuf -> Parser.token
+    end
+
+  end
+
 end

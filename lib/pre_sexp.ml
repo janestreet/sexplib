@@ -274,7 +274,6 @@ let to_string = to_string_mach
 
 let scan_sexp ?buf lexbuf = Parser.sexp (Lexer.main ?buf) lexbuf
 let scan_sexps ?buf lexbuf = Parser.sexps (Lexer.main ?buf) lexbuf
-let scan_rev_sexps ?buf lexbuf = Parser.rev_sexps (Lexer.main ?buf) lexbuf
 
 let get_main_buf buf =
   let buf =
@@ -573,7 +572,6 @@ let mk_cont_parser cont_parse = (); fun _state str ~max_pos ~pos ->
   and parse_sexp_comment state str ~max_pos ~pos = \
     let pbuf_str = "" in \
     ignore (MK_ATOM); \
-    Buffer.clear state.pbuf; \
     let old_pstack = GET_PSTACK in \
     let pstack = [] in \
     SET_PSTACK; \
@@ -592,10 +590,9 @@ let mk_cont_parser cont_parse = (); fun _state str ~max_pos ~pos ->
     in \
     loop PARSE state str ~max_pos ~pos \
   \
-  and parse_block_comment state str ~max_pos ~pos = \
+  and parse_block_comment ({ pbuf } as state) str ~max_pos ~pos = \
     let pbuf_str = "" in \
     ignore (MK_ATOM); \
-    Buffer.clear state.pbuf; \
     let old_pstack = GET_PSTACK in \
     let pstack = [] in \
     SET_PSTACK; \
@@ -611,10 +608,10 @@ let mk_cont_parser cont_parse = (); fun _state str ~max_pos ~pos ->
               let rec parse_block_quote parse state str ~max_pos ~pos = \
                 match parse state str ~max_pos ~pos with \
                 | Done (_sexp, { Parse_pos.buf_pos = pos }) -> \
-                    Buffer.clear state.pbuf; \
+                    Buffer.clear pbuf; \
                     parse_block_depth state str ~max_pos ~pos \
                 | Cont (_, cont_parse) -> \
-                    Buffer.clear state.pbuf; \
+                    Buffer.clear pbuf; \
                     let parse = mk_cont_parser cont_parse in \
                     mk_cont_state "parse_block_quote" \
                       (parse_block_quote parse) state \
@@ -635,16 +632,18 @@ let mk_cont_parser cont_parse = (); fun _state str ~max_pos ~pos ->
       and parse_close_block state str ~max_pos ~pos = \
         if pos > max_pos then \
           mk_cont "parse_close_block" parse_close_block state \
-        else if GET_CHAR = '#' then \
-          let parse = \
-            if depth = 1 then \
-              let pstack = old_pstack in \
-              SET_PSTACK; \
-              PARSE \
-            else loop (depth - 1) \
-          in \
-          bump_pos_cont state str ~max_pos ~pos parse \
-        else parse_block_depth state str ~max_pos ~pos \
+        else \
+          if GET_CHAR = '#' then \
+            let parse = \
+              if depth = 1 then \
+                let () = Buffer.clear state.pbuf in \
+                let pstack = old_pstack in \
+                SET_PSTACK; \
+                PARSE \
+              else loop (depth - 1) \
+            in \
+            bump_pos_cont state str ~max_pos ~pos parse \
+          else parse_block_depth state str ~max_pos ~pos \
       in \
       parse_block_depth state str ~max_pos ~pos \
     in \
@@ -1244,3 +1243,4 @@ let rec subst_found sexp ~subst = function
                 List (List.rev_append acc (subst_found h ~subst found :: t))
           in
           loop [] pos lst
+

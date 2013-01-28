@@ -641,7 +641,7 @@ let () =
         | Parse_error pe ->
             let ppos =
               match pe.parse_state with
-              | `Sexp { parse_pos } | `Annot { parse_pos } -> parse_pos
+              | `Sexp { parse_pos; _ } | `Annot { parse_pos; _ } -> parse_pos
             in
             List [
               Atom "Sexplib.Sexp.Parse_error";

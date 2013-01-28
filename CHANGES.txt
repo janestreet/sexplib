@@ -1,3 +1,19 @@
+2012-07-15:  Added support for S-expression default record fields.
+
+             Added syntax for S-expression comments and for nested block
+             comments.
+
+             Fixed a few minor bugs and inconsistencies in the parsers and
+             updated their whitespace handling to conform with the upcoming
+             OCaml 4.00 compiler.  The parser specification now also supports
+             Menhir.
+
+             Rewrote README in Markdown and improved documentation.
+
+             Minor bug fix in the preprocessing module.
+
+             Eliminated new warnings available in OCaml 4.00.
+
 2011-09-18:  Improved documentation.
 
 2011-09-15:  Fixes to improve package dependency resolution.

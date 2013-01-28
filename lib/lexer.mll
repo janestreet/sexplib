@@ -3,7 +3,6 @@
 
   open Printf
   open Lexing
-  open Parser
 
   let char_for_backslash = function
     | 'n' -> '\010'
@@ -30,7 +29,7 @@
       else d2 - 48 in
     val1 * 16 + val2
 
-  let found_newline ({ lex_curr_p } as lexbuf) diff =
+  let found_newline ({ lex_curr_p; _ } as lexbuf) diff =
     lexbuf.lex_curr_p <-
       {
         lex_curr_p with
@@ -38,16 +37,45 @@
         pos_bol = lex_curr_p.pos_cnum - diff;
       }
 
-  let lexeme_len { lex_start_pos; lex_curr_pos } = lex_curr_pos - lex_start_pos
+  let lexeme_len lexbuf = lexeme_end lexbuf - lexeme_start lexbuf
 
   let main_failure lexbuf msg =
-    let { pos_lnum; pos_bol; pos_cnum } = lexeme_start_p lexbuf in
+    let { pos_lnum; pos_bol; pos_cnum; pos_fname = _ } = lexeme_start_p lexbuf in
     let msg =
       sprintf
         "Sexplib.Lexer.main: %s at line %d char %d"
         msg pos_lnum (pos_cnum - pos_bol)
     in
     failwith msg
+
+  module type T = sig
+    module Quoted_string_buffer : sig
+      type t
+      val create : int -> t
+      val add_char : t -> char -> unit
+      val add_substring : t -> string -> int -> int -> unit
+      val add_lexeme : t -> lexbuf -> unit
+      val clear : t -> unit
+      val of_buffer : Buffer.t -> t
+    end
+    module Token : sig
+      type t
+      val lparen : t
+      val rparen : t
+      val eof : t
+      val simple_string : string -> t
+      val hash_semi : t
+      val quoted_string : Lexing.position -> Quoted_string_buffer.t -> t
+      type s = Quoted_string_buffer.t -> Lexing.lexbuf -> t
+      val comment : string -> main:s -> s
+      val block_comment : Lexing.position -> main:s -> s
+    end
+  end
+
+  module Make (X : T) : sig
+    val main : ?buf:Buffer.t -> Lexing.lexbuf -> X.Token.t
+  end = struct (* BEGIN FUNCTOR BODY CONTAINING GENERATED CODE *)
+    open X
 }
 
 let lf = '\010'
@@ -62,51 +90,64 @@ let unquoted_start =
   unquoted # ['#' '|'] | '#' unquoted # ['|'] | '|' unquoted # ['#']
 
 rule main buf = parse
-  | lf | dos_newline { found_newline lexbuf 0; main buf lexbuf }
-  | blank+ | ';' (_ # lf_cr)* { main buf lexbuf }
-  | '(' { LPAREN }
-  | ')' { RPAREN }
+  | lf | dos_newline { found_newline lexbuf 0;
+                       main buf lexbuf }
+  | blank+ { main buf lexbuf }
+  | (';' (_ # lf_cr)*) as text { Token.comment text ~main buf lexbuf }
+  | '(' { Token.lparen }
+  | ')' { Token.rparen }
   | '"'
       {
-        scan_string buf (lexeme_start_p lexbuf) lexbuf;
-        let str = Buffer.contents buf in
-        Buffer.clear buf;
-        STRING str
+        let pos = Lexing.lexeme_start_p lexbuf in
+        Quoted_string_buffer.add_lexeme buf lexbuf;
+        scan_string buf pos lexbuf;
+        let tok = Token.quoted_string pos buf in
+        Quoted_string_buffer.clear buf;
+        tok
       }
-  | "#;" { SEXP_COMMENT }
+  | "#;" { Token.hash_semi }
   | "#|"
       {
-        scan_block_comment buf [lexeme_start_p lexbuf] lexbuf;
-        main buf lexbuf
+        let pos = Lexing.lexeme_start_p lexbuf in
+        Quoted_string_buffer.add_lexeme buf lexbuf;
+        scan_block_comment buf [pos] lexbuf;
+        let tok = Token.block_comment pos ~main buf lexbuf in
+        Quoted_string_buffer.clear buf;
+        tok
       }
   | "|#" { main_failure lexbuf "illegal end of comment" }
   | unquoted_start unquoted* ("#|" | "|#") unquoted*
       { main_failure lexbuf "comment tokens in unquoted atom" }
-  | "#" | unquoted_start unquoted* as str { STRING str }
-  | eof { EOF }
+  | "#" | unquoted_start unquoted* as str { Token.simple_string str }
+  | eof { Token.eof }
 
 and scan_string buf start = parse
-  | '"' { () }
+  | '"' { Quoted_string_buffer.add_lexeme buf lexbuf; () }
   | '\\' lf [' ' '\t']*
       {
-        found_newline lexbuf (lexeme_len lexbuf - 2);
+        let len = lexeme_len lexbuf - 2 in
+        found_newline lexbuf len;
+        Quoted_string_buffer.add_lexeme buf lexbuf;
         scan_string buf start lexbuf
       }
   | '\\' dos_newline [' ' '\t']*
       {
-        found_newline lexbuf (lexeme_len lexbuf - 3);
+        let len = lexeme_len lexbuf - 3 in
+        found_newline lexbuf len;
+        Quoted_string_buffer.add_lexeme buf lexbuf;
         scan_string buf start lexbuf
       }
   | '\\' (['\\' '\'' '"' 'n' 't' 'b' 'r' ' '] as c)
       {
-        Buffer.add_char buf (char_for_backslash c);
+        Quoted_string_buffer.add_char buf (char_for_backslash c);
+        Quoted_string_buffer.add_lexeme buf lexbuf;
         scan_string buf start lexbuf
       }
   | '\\' (digit as c1) (digit as c2) (digit as c3)
       {
         let v = dec_code c1 c2 c3 in
         if v > 255 then (
-          let { pos_lnum; pos_bol; pos_cnum } = lexeme_end_p lexbuf in
+          let { pos_lnum; pos_bol; pos_cnum; pos_fname = _ } = lexeme_end_p lexbuf in
           let msg =
             sprintf
               "Sexplib.Lexer.scan_string: \
@@ -114,32 +155,37 @@ and scan_string buf start = parse
               pos_lnum (pos_cnum - pos_bol - 3)
               c1 c2 c3 in
           failwith msg);
-        Buffer.add_char buf (Char.chr v);
+        Quoted_string_buffer.add_char buf (Char.chr v);
+        Quoted_string_buffer.add_lexeme buf lexbuf;
         scan_string buf start lexbuf
       }
   | '\\' 'x' (hexdigit as c1) (hexdigit as c2)
       {
         let v = hex_code c1 c2 in
-        Buffer.add_char buf (Char.chr v);
+        Quoted_string_buffer.add_char buf (Char.chr v);
+        Quoted_string_buffer.add_lexeme buf lexbuf;
         scan_string buf start lexbuf
       }
   | '\\' (_ as c)
       {
-        Buffer.add_char buf '\\';
-        Buffer.add_char buf c;
+        Quoted_string_buffer.add_char buf '\\';
+        Quoted_string_buffer.add_char buf c;
+        Quoted_string_buffer.add_lexeme buf lexbuf;
         scan_string buf start lexbuf
       }
   | lf
       {
         found_newline lexbuf 0;
-        Buffer.add_char buf lf;
+        Quoted_string_buffer.add_char buf lf;
+        Quoted_string_buffer.add_lexeme buf lexbuf;
         scan_string buf start lexbuf
       }
   | ([^ '\\' '"'] # lf)+
       {
         let ofs = lexbuf.lex_start_pos in
         let len = lexbuf.lex_curr_pos - ofs in
-        Buffer.add_substring buf lexbuf.lex_buffer ofs len;
+        Quoted_string_buffer.add_substring buf lexbuf.lex_buffer ofs len;
+        Quoted_string_buffer.add_lexeme buf lexbuf;
         scan_string buf start lexbuf
       }
   | eof
@@ -154,34 +200,39 @@ and scan_string buf start = parse
 
 and scan_block_comment buf locs = parse
   | ('#'* | '|'*) lf
-      { found_newline lexbuf 0; scan_block_comment buf locs lexbuf }
-  | (('#'* | '|'*) [^ '"' '#' '|'] # lf)+ { scan_block_comment buf locs lexbuf }
+      { Quoted_string_buffer.add_lexeme buf lexbuf;
+        found_newline lexbuf 0; scan_block_comment buf locs lexbuf }
+  | (('#'* | '|'*) [^ '"' '#' '|'] # lf)+
+      { Quoted_string_buffer.add_lexeme buf lexbuf;
+        scan_block_comment buf locs lexbuf }
   | ('#'* | '|'*) '"'
       {
+        Quoted_string_buffer.add_lexeme buf lexbuf;
         let cur = lexeme_end_p lexbuf in
         let start = { cur with pos_cnum = cur.pos_cnum - 1 } in
         scan_string buf start lexbuf;
-        Buffer.clear buf;
         scan_block_comment buf locs lexbuf
       }
   | '#'+ '|'
     {
+      Quoted_string_buffer.add_lexeme buf lexbuf;
       let cur = lexeme_end_p lexbuf in
       let start = { cur with pos_cnum = cur.pos_cnum - 2 } in
       scan_block_comment buf (start :: locs) lexbuf
     }
   | '|'+ '#'
       {
+        Quoted_string_buffer.add_lexeme buf lexbuf;
         match locs with
-        | [_] -> ()
-        | _ :: t -> scan_block_comment buf t lexbuf
+        | [_] -> () (* the comment is finished *)
+        | _ :: (_ :: _ as t) -> scan_block_comment buf t lexbuf
         | [] -> assert false  (* impossible *)
       }
   | eof
       {
         match locs with
         | [] -> assert false
-        | { pos_lnum; pos_bol; pos_cnum } :: _ ->
+        | { pos_lnum; pos_bol; pos_cnum; pos_fname = _ } :: _ ->
             let msg =
               sprintf "Sexplib.Lexer.scan_block_comment: \
                 unterminated block comment at line %d char %d"
@@ -190,12 +241,77 @@ and scan_block_comment buf locs = parse
             failwith msg
       }
 
-{
-  let main ?buf =
-    let buf =
-      match buf with
-      | None -> Buffer.create 64
-      | Some buf -> Buffer.clear buf; buf
-    in
-    main buf
+{ (* RESUME FUNCTOR BODY CONTAINING GENERATED CODE *)
+
+    let main ?buf =
+      let buf =
+        match buf with
+        | None -> Quoted_string_buffer.create 64
+        | Some buf ->
+          Buffer.clear buf;
+          Quoted_string_buffer.of_buffer buf
+      in
+      main buf
+
+  end (* END FUNCTOR BODY CONTAINING GENERATED CODE *)
+
+  module Vanilla =
+    Make (struct
+      module Quoted_string_buffer = struct
+        include Buffer
+        let add_lexeme _ _ = ()
+        let of_buffer b = b
+      end
+      module Token = struct
+        open Parser
+        type t = token
+        type s = Quoted_string_buffer.t -> Lexing.lexbuf -> t
+        let eof = EOF
+        let lparen = LPAREN
+        let rparen = RPAREN
+        let hash_semi = HASH_SEMI
+        let simple_string x = STRING x
+        let quoted_string _ buf = STRING (Buffer.contents buf)
+        let block_comment _pos ~main buf lexbuf =
+          main buf lexbuf
+        let comment _text ~main buf lexbuf =
+          main buf lexbuf (* skip and continue lexing *)
+      end
+    end)
+
+  module With_layout =
+    Make (struct
+      module Quoted_string_buffer = struct
+        type t = {
+          contents : Buffer.t;
+          lexeme : Buffer.t;
+        }
+        let create n = {contents = Buffer.create n; lexeme = Buffer.create n}
+        let of_buffer contents = { contents; lexeme = Buffer.create 64 }
+        let add_char t ch = Buffer.add_char t.contents ch
+        let add_substring t str ofs len = Buffer.add_substring t.contents str ofs len
+        let add_lexeme t lexbuf = Buffer.add_string t.lexeme (Lexing.lexeme lexbuf)
+        let clear t = Buffer.clear t.lexeme; Buffer.clear t.contents
+      end
+      module Token = struct
+        open Parser_with_layout
+        type t = token
+        type s = Quoted_string_buffer.t -> Lexing.lexbuf -> t
+        let eof = EOF
+        let lparen = LPAREN
+        let rparen = RPAREN
+        let hash_semi = HASH_SEMI
+        let simple_string x = STRING (x, None)
+        let quoted_string pos {Quoted_string_buffer.contents; lexeme} =
+          STRING (Buffer.contents contents, Some (pos, Buffer.contents lexeme))
+        let block_comment pos ~main:_ {Quoted_string_buffer.contents = _; lexeme} _lexbuf =
+          COMMENT (Buffer.contents lexeme, Some pos)
+        let comment text ~main:_ _buf _lexbuf =
+          COMMENT (text, None)
+      end
+    end)
+
+  let main = Vanilla.main
+  let main_with_layout = With_layout.main
+
 }

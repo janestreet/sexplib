@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 1b18706379285543f8a09422d9e793ce)
+# DO NOT EDIT (digest: 7e9eeb53326c246f58f9ff3c0f3f944e)
 # Ignore VCS directories, you can use the same kind of rule outside 
 # OASIS_START/STOP if you want to exclude directories that contains 
 # useless stuff for the build process
@@ -22,9 +22,13 @@
 "lib/pre_sexp.cmx": for-pack(Sexplib)
 "lib/sexp.cmx": for-pack(Sexplib)
 "lib/sexp_intf.cmx": for-pack(Sexplib)
+"lib/sexp_with_layout.cmx": for-pack(Sexplib)
+"lib/src_pos.cmx": for-pack(Sexplib)
 "lib/std.cmx": for-pack(Sexplib)
 "lib/type.cmx": for-pack(Sexplib)
+"lib/type_with_layout.cmx": for-pack(Sexplib)
 "lib/parser.cmx": for-pack(Sexplib)
+"lib/parser_with_layout.cmx": for-pack(Sexplib)
 "lib/lexer.cmx": for-pack(Sexplib)
 <lib/*.ml{,i}>: pkg_unix
 <lib/*.ml{,i}>: pkg_bigarray
@@ -59,7 +63,7 @@
 <lib_test/*.ml{,i}>: pkg_bigarray
 <lib_test/*.ml{,i}>: pkg_num
 # OASIS_STOP
-<lib/pre_sexp.ml>: pp(cpp -undef -traditional -I/mnt/local/sda1/ysulsky/src/misc/public/ocaml-core.bak/base/sexplib/syntax)
+<lib/pre_sexp.ml>: pp(cpp -undef -traditional -I/mnt/local/janevg-data/ysulsky/src/misc/public/backup-2012-09-05/ocaml-core/base/sexplib/syntax)
 <lib_test/*.ml{,i}>: syntax_camlp4o, pkg_type_conv.syntax
 <lib_test/conv_test.byte>: use_sexplib, pkg_unix, pkg_num, pkg_bigarray
 <syntax/pa_sexp_conv.ml>: syntax_camlp4o

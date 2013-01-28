@@ -102,6 +102,10 @@ let ptag_incorrect_n_args loc cnstr sexp =
   in
   of_sexp_error msg sexp
 
+let ptag_takes_args loc sexp =
+  of_sexp_error (loc ^ "_of_sexp: polymorphic variant tag takes an argument")
+    sexp
+
 let nested_list_invalid_poly_var loc sexp =
   of_sexp_error (
     loc ^ "_of_sexp: a nested list is an invalid polymorphic variant") sexp
