@@ -19,6 +19,36 @@ let sexp_of_layout_sexps_or_something sexps_with_layout =
 
 let parsers = [
   Sexp.of_string, "cont";
+  (fun s ->
+    (* feeding the characters to the parse function one by one to make sure the cont_state
+       machinery is working fine *)
+    let pos = 0 in
+    match Sexp.parse ~len:1 s with
+    | Sexp.Done (t, _) -> t
+    | Sexp.Cont (cont_state, parse_fun) ->
+      let rec aux parse_fun pos =
+        assert (pos < String.length s);
+        match parse_fun ~pos ~len:1 s with
+        | Sexp.Done (t, _) ->
+          if pos + 1 = String.length s then t
+          else failwith "Should have reached the end1"
+        | Sexp.Cont (cont_state, parse_fun) ->
+          aux_cont pos cont_state parse_fun
+      and aux_cont pos cont_state parse_fun =
+        if pos + 1 = String.length s then
+          match cont_state with
+          | Sexp.Cont_state.Parsing_atom -> begin
+            match parse_fun ~pos:0 ~len:1 " " with
+            | Sexp.Done (t, _) -> t
+            | Sexp.Cont _ -> failwith "Should have reached the end2"
+          end
+          | Sexp.Cont_state.Parsing_sexp_comment
+          | Sexp.Cont_state.Parsing_block_comment
+          | Sexp.Cont_state.Parsing_whitespace -> failwith "incomplete"
+          | Sexp.Cont_state.Parsing_list -> failwith "Should have reached the end3"
+        else aux parse_fun (pos + 1) in
+      aux_cont pos cont_state parse_fun
+  ), "cont-incremental";
   (fun s -> Sexp.scan_sexp (Lexing.from_string s)), "ocamllex";
   (fun s -> Sexp.Annotated.get_sexp (Sexp.Annotated.of_string s)), "annot";
   (fun s ->
@@ -162,6 +192,16 @@ let () =
     | Failure s -> grep "comment tokens in unquoted atom" s
     | Sexp.Parse_error {Sexp.location = "maybe_parse_bad_atom_pipe"; _} -> true
     | _ -> false);
+  parse_fail _here_ "##|"
+    (function
+    | Failure s -> grep "comment tokens in unquoted atom" s
+    | Sexp.Parse_error {Sexp.location = "maybe_parse_bad_atom_hash"; _} -> true
+    | _ -> false);
+  parse_fail _here_ "||#"
+    (function
+    | Failure s -> grep "comment tokens in unquoted atom" s
+    | Sexp.Parse_error {Sexp.location = "maybe_parse_bad_atom_pipe"; _} -> true
+    | _ -> false);
   parse_fail _here_ "#|" (* not terminated *)
     (function
     | Failure s -> grep "incomplete" s || grep "unterminated" s
@@ -175,6 +215,7 @@ let () =
     (function
     | Sexp.Parse_error _ | Failure _ -> true
     | _ -> false);
+
   same_parse_tree _here_ "#;a b" "b"; (* sexp comment + atom *)
   same_parse_tree _here_ "#;((a)) b" "b"; (* sexp comment + list *)
   same_parse_tree _here_ "#;\"#;\" b" "b"; (* sexp comment + quoted atom *)
@@ -184,12 +225,23 @@ let () =
   same_parse_tree _here_ "(#;a #;(a) #;b)" "()"; (* consecutive sexp comment + nothing *)
   same_parse_tree _here_ "#; #; #; comment1 comment2 comment3 a" "a"; (* nested sexp comment *)
   same_parse_tree _here_ "#| ; |# ()" "()"; (* single line comment are not parsed inside of blocks *)
+  same_parse_tree _here_ "#|#||#|#a" "a"; (* consecutive comment opening are not parsed
+                                             as one invalid atom *)
   (* why do we need a freaking space at the end?? *)
   same_parse_trees _here_ "a #; b c " "a c ";  (* base case, accepting lists *)
   same_parse_trees _here_ "#;#;a b c d " "c d "; (* leading comments work alright *)
   same_parse_trees _here_ "#;#;a b " " "; (* leading comments work alright *)
   same_parse_trees _here_ "plop #;#;a b " "plop "; (* trailing comments work alright *)
   same_parse_trees _here_ "#;b " " "; (* leading comments in front of nothing *)
+
+  (* making sure that '|' is still accepted in literals *)
+  same_parse_tree _here_ "(a|b)" "(\"a|b\")";
+  same_parse_tree _here_ "(a | b)" "(a \"|\" b)";
+  same_parse_tree _here_ "((a)|b)" "((a)\"|b\")";
+  same_parse_tree _here_ "(b|(a))" "(\"b|\"(a))";
+  same_parse_trees _here_ "a|b " "\"a|b\" ";
+  same_parse_trees _here_ "(a)|b " "(a)\"|b\" ";
+  same_parse_trees _here_ "b|(a)" "\"b|\"(a)";
   if !failures <> 0 then (
     Printf.printf "%d / %d tests failed\n%!" !failures !tests;
     exit 2

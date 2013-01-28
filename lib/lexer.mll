@@ -116,9 +116,16 @@ rule main buf = parse
         tok
       }
   | "|#" { main_failure lexbuf "illegal end of comment" }
+  (* XCR nlinger for vgatien-baron: please add TESTs for these new cases
+
+     vgatien-baron: I did that already. Look in ../lib_test/parser_test.ml *)
+  | "#" "#"+ "|" unquoted* (* unquoted_start can match ##, so ##| (which should be
+                              refused) would not not be parsed by this case if the regexp
+                              on the left was not there *)
+  | "|" "|"+ "#" unquoted*
   | unquoted_start unquoted* ("#|" | "|#") unquoted*
       { main_failure lexbuf "comment tokens in unquoted atom" }
-  | "#" | unquoted_start unquoted* as str { Token.simple_string str }
+  | "#" | "|" | unquoted_start unquoted* as str { Token.simple_string str }
   | eof { Token.eof }
 
 and scan_string buf start = parse

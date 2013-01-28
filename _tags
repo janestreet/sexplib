@@ -63,7 +63,7 @@
 <lib_test/*.ml{,i}>: pkg_bigarray
 <lib_test/*.ml{,i}>: pkg_num
 # OASIS_STOP
-<lib/pre_sexp.ml>: pp(cpp -undef -traditional -I/mnt/local/janevg-data/ysulsky/src/misc/public/backup-2012-09-05/ocaml-core/base/sexplib/syntax)
+<lib/pre_sexp.ml>: pp(cpp -undef -traditional -I./syntax)
 <lib_test/*.ml{,i}>: syntax_camlp4o, pkg_type_conv.syntax
 <lib_test/conv_test.byte>: use_sexplib, pkg_unix, pkg_num, pkg_bigarray
 <syntax/pa_sexp_conv.ml>: syntax_camlp4o

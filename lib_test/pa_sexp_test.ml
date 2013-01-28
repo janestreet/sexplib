@@ -17,3 +17,8 @@ let () =
         (Sexp.to_string sexp1)
         (Sexp.to_string sexp)
     )
+
+(* this one would trigger a warning in 4.0 about unused rec if type_conv
+   says that this definition is recursive *)
+type r = { r : int } with sexp
+

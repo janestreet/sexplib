@@ -39,6 +39,10 @@ module type S = sig
       S-expressions from lex buffer [lexbuf] using the optional string
       buffer [buf] for storing intermediate strings. *)
 
+  val scan_rev_sexps : ?buf : Buffer.t -> Lexing.lexbuf -> t list
+  (** [scan_rev_sexps ?buf lexbuf] same as {!scan_sexps}, but returns the
+      reversed list and is slightly more efficient. *)
+
   val scan_iter_sexps :
     ?buf : Buffer.t -> f : (t -> unit) -> Lexing.lexbuf -> unit
   (** [scan_iter_sexps ?buf ~f lexbuf] iterates over all whitespace

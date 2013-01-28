@@ -6,7 +6,7 @@
   open Lexing
 
   let parse_failure what =
-    let pos = symbol_start_pos () in
+    let pos = Parsing.symbol_start_pos () in
     let msg =
       Printf.sprintf "Sexplib.Parser: failed to parse line %d char %d: %s"
         pos.pos_lnum (pos.pos_cnum - pos.pos_bol) what in
@@ -105,11 +105,11 @@ rev_sexps_aux
   | rev_sexps_aux sexp { $2 :: $1 }
 
 rev_sexps
-  : rev_sexps_aux { $1 }
+  : rev_sexps_aux EOF { $1 }
   | EOF { [] }
 
 sexps
-  : rev_sexps_aux { List.rev $1 }
+  : rev_sexps_aux EOF { List.rev $1 }
   | EOF { [] }
 
 /* for debugging positions */
