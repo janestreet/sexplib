@@ -26,3 +26,51 @@ module A = struct
   type nonrec r = { r : r }
   let _ (r : r) = r.r (* checking that the field is not rewritten *)
 end
+
+module Default = struct
+  type t = {
+    a : int with default(2);
+  } with sexp
+  let () = assert (Sexp.(List [List [Atom "a"; Atom "1"]]) = sexp_of_t { a = 1 })
+  let () = assert (Sexp.(List [List [Atom "a"; Atom "2"]]) = sexp_of_t { a = 2 })
+  let () = assert (t_of_sexp (Sexp.(List [List [Atom "a"; Atom "1"]])) = { a = 1 })
+  let () = assert (t_of_sexp (Sexp.(List [List [Atom "a"; Atom "2"]])) = { a = 2 })
+  let () = assert (t_of_sexp (Sexp.(List [])) = { a = 2 })
+end
+
+module Drop_default = struct
+  type t = {
+    a : int with default(2), sexp_drop_default;
+  } with sexp
+  let () = assert (Sexp.(List [List [Atom "a"; Atom "1"]]) = sexp_of_t { a = 1 })
+  let () = assert (Sexp.(List []) = sexp_of_t { a = 2 })
+  let () = assert (t_of_sexp (Sexp.(List [List [Atom "a"; Atom "1"]])) = { a = 1 })
+  let () = assert (t_of_sexp (Sexp.(List [List [Atom "a"; Atom "2"]])) = { a = 2 })
+  let () = assert (t_of_sexp (Sexp.(List [])) = { a = 2 })
+end
+
+module Drop_if = struct
+  type t = {
+    a : int with default(2), sexp_drop_if(fun x -> x mod 2 = 0)
+  } with sexp
+  let () = assert (Sexp.(List [List [Atom "a"; Atom "1"]]) = sexp_of_t { a = 1 })
+  let () = assert (Sexp.(List []) = sexp_of_t { a = 2 })
+  let () = assert (Sexp.(List [List [Atom "a"; Atom "3"]]) = sexp_of_t { a = 3 })
+  let () = assert (Sexp.(List []) = sexp_of_t { a = 4 })
+  let () = assert (t_of_sexp (Sexp.(List [List [Atom "a"; Atom "1"]])) = { a = 1 })
+  let () = assert (t_of_sexp (Sexp.(List [List [Atom "a"; Atom "2"]])) = { a = 2 })
+  let () = assert (t_of_sexp (Sexp.(List [List [Atom "a"; Atom "3"]])) = { a = 3 })
+  let () = assert (t_of_sexp (Sexp.(List [List [Atom "a"; Atom "4"]])) = { a = 4 })
+  let () = assert (t_of_sexp (Sexp.(List [])) = { a = 2 })
+
+  type u = {
+    a : int with sexp_drop_if(fun x ->
+      (* pa_type_conv used to drop parens altogether, causing type errors in the
+         following code *)
+      let pair = (x, 2) in
+      match Some pair with
+      | None -> true
+      | Some (x, y) -> x = y
+    )
+  } with sexp
+end
