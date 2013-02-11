@@ -27,6 +27,29 @@ module A = struct
   let _ (r : r) = r.r (* checking that the field is not rewritten *)
 end
 
+module No_unused_value_warnings : sig end = struct
+  module No_warning : sig
+    type t = [ `A ] with sexp
+  end = struct
+    type t = [ `A ] with sexp
+  end
+  module Empty = struct
+  end
+  module No_warning2(X : sig type t with sexp end) = struct
+  end
+  (* this one can't be handled (what if Empty was a functor, huh?) *)
+  (* module No_warning3(X : sig type t with sexp end) = Empty *)
+  module type S = sig
+    type t = [ `A ] with sexp
+  end
+  module No_warning4 : S = struct
+    type t = [ `A ] with sexp
+  end
+  module No_warning5 : S = ((struct
+    type t = [ `A ] with sexp
+  end : S) : S)
+end
+
 module Default = struct
   type t = {
     a : int with default(2);
@@ -73,4 +96,10 @@ module Drop_if = struct
       | Some (x, y) -> x = y
     )
   } with sexp
+end
+
+module B = struct
+  (* checking that there is no warning about 'unused rec'  *)
+  type r = { field : r -> unit }
+  with sexp_of
 end
