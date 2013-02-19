@@ -121,6 +121,7 @@ end
 module Sig_generate_of_sexp = struct
 
   let rec is_polymorphic_variant = function
+    | <:ctyp< ($ty$ as $_$) >> -> is_polymorphic_variant ty
     | <:ctyp< private $tp$ >> -> is_polymorphic_variant tp
     | <:ctyp< ( $tup:_$ ) >>
     | <:ctyp< $_$ -> $_$ >>
@@ -159,7 +160,8 @@ module Sig_generate_of_sexp = struct
           ~msg:"sexp_poly annotation \
             but type is surely not a polymorphic variant"
     | false, (`Surely_not | `Maybe) -> of_sexp_item
-    | (true | false), `Definitely | true, `Maybe ->
+    | (true | false), `Definitely
+    | true, `Maybe ->
         <:sig_item@loc<
           $of_sexp_item$;
           value $lid: type_name ^ "_of_sexp__"$ : $of_sexp$;
@@ -384,6 +386,8 @@ module Generate_sexp_of = struct
             let $bindings$ in
             Sexplib.Sexp.List $Gen.mk_expr_lst loc (cnstr_expr :: vars)$
         >>
+    | <:ctyp< $_$ : $_$ >> as tp -> Gen.error tp ~fn:"branch_sum"
+      ~msg:"GADTs are not supported by sexplib"
     | tp -> Gen.unknown_type tp "branch_sum"
 
   let sexp_of_sum alts = `Match (branch_sum alts)

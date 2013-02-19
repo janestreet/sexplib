@@ -61,6 +61,43 @@ module Default = struct
   let () = assert (t_of_sexp (Sexp.(List [])) = { a = 2 })
 end
 
+module Type_alias = struct
+  (* checking that the [as 'a] is supported and ignored in signatures, that it still
+     exports the sexp_of_t__ when needed *)
+  module B : sig
+    type a = [ `A ]
+    type t = ([`A] as 'a) constraint 'a = a
+    with sexp
+  end = struct
+    type a = [ `A ] with sexp
+    type t = [ `A ] with sexp
+  end
+  let () =
+    assert (Sexp.to_string (B.sexp_of_t `A) = "A");
+    assert (`A = B.t_of_sexp (Sexp.of_string "A"));
+    ()
+
+  module B2 = struct
+    type t = [ B.t | `B ] with sexp
+  end
+
+  module C : sig
+    type t = (int as 'a)
+    with sexp
+  end = struct
+    type t = int
+    with sexp
+  end
+
+  module D : sig
+    type t = 'a constraint 'a = int
+    with sexp
+  end = struct
+    type t = int
+    with sexp
+  end
+end
+
 module Drop_default = struct
   type t = {
     a : int with default(2), sexp_drop_default;
