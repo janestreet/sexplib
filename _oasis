@@ -43,7 +43,6 @@ Library pa_sexp_conv
   FindlibParent:      sexplib
   Modules:            Pa_sexp_conv
   BuildDepends:       camlp4.quotations,camlp4.extend,type_conv (>= 3.0.5)
-  CompiledObject:     byte
   XMETAType:          syntax
   XMETARequires:      camlp4,type_conv,sexplib
   XMETADescription:   Syntax extension for Sexplib
