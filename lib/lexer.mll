@@ -37,7 +37,8 @@
         pos_bol = lex_curr_p.pos_cnum - diff;
       }
 
-  let lexeme_len lexbuf = lexeme_end lexbuf - lexeme_start lexbuf
+  (* same length computation as in [Lexing.lexeme] *)
+  let lexeme_len { lex_start_pos; lex_curr_pos; _ } = lex_curr_pos - lex_start_pos
 
   let main_failure lexbuf msg =
     let { pos_lnum; pos_bol; pos_cnum; pos_fname = _ } = lexeme_start_p lexbuf in
