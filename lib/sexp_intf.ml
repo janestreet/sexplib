@@ -277,12 +277,16 @@ module type S = sig
 
   val parse :
     ?parse_pos : Parse_pos.t -> ?len : int -> string -> (string, t) parse_result
-  (** [parse ?parse_pos ?len str] (partially) parses an S-expression in
-      string buffer [str] starting out with position information provided in
-      [parse_pos] and reading at most [len] characters.  To parse a single
-      atom that is not delimited by whitespace it is necessary to call this
-      function a second time with the returned continuation, and a dummy
-      buffer that contains whitespace.
+  (** [parse ?parse_pos ?len str] (partially) parses an S-expression in string buffer
+      [str] starting out with position information provided in [parse_pos] and reading at
+      most [len] characters.  To parse a single atom that is not delimited by whitespace
+      it is necessary to call this function a second time with the returned continuation,
+      and a dummy buffer that contains whitespace.
+
+      [parse] starts parsing [str] at position [parse_pos.buf_pos].  Each subsequent
+      [parse_fun] from a [Cont] uses the [buf] and [pos] that is supplied to it.  The
+      final [parse_fun] that returns [Done] mutates the [buf_pos] in the originally
+      supplied [parse_pos], and then returns it.
 
       @param parse_pos default = [Parse_pos.create ()]
       @param len default = [String.length str - parse_pos.Parse_pos.buf_pos]
