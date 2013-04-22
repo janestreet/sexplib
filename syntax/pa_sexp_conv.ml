@@ -164,7 +164,7 @@ module Sig_generate_of_sexp = struct
     | true, `Maybe ->
         <:sig_item@loc<
           $of_sexp_item$;
-          value $lid: type_name ^ "_of_sexp__"$ : $of_sexp$;
+          value $lid: "__" ^ type_name ^ "_of_sexp__"$ : $of_sexp$;
         >>
 
   let mk_sig with_poly _rec tds =
@@ -645,7 +645,7 @@ end
 module Generate_of_sexp = struct
   let mk_abst_call loc tn ?(internal = false) rev_path =
     let tns = tn ^ "_of_sexp" in
-    let tns_suff = if internal then tns ^ "__" else tns in
+    let tns_suff = if internal then "__" ^ tns ^ "__" else tns in
     <:expr@loc< $id:Gen.ident_of_rev_path loc (tns_suff :: rev_path)$ >>
 
   (* Utility functions for polymorphic variants *)
@@ -1331,7 +1331,7 @@ module Generate_of_sexp = struct
       | `Match matchings -> <:expr@loc< fun [ $matchings$ ] >>
     in
     let external_name = type_name ^ "_of_sexp" in
-    let internal_name = type_name ^ "_of_sexp__" in
+    let internal_name = "__" ^ type_name ^ "_of_sexp__" in
     let arg_patts, arg_exprs =
       List.split (
         List.map ~f:(function tp ->
@@ -1355,7 +1355,8 @@ module Generate_of_sexp = struct
            because
            - they can used in polymorphic variants: [ ([`A], int) t | `B ]
            - the way sexplib works, it cannot handle backtracking in these cases,
-             (because we only receive as parameter sexp_of_'a but not sexp_of_'a__ presumably)
+             (because we only receive as parameter sexp_of_'a but not
+             __sexp_of_'a__ presumably)
              so it is better to emit an error rather than do something weird
         *)
         Gen.abstract loc arg_patts

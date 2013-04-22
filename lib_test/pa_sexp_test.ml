@@ -48,6 +48,19 @@ module No_unused_value_warnings : sig end = struct
   module No_warning5 : S = ((struct
     type t = [ `A ] with sexp
   end : S) : S)
+
+  module Nested_functors
+    (M1 : sig type t with sexp end)
+    (M2 : sig type t with sexp end) = struct
+  end
+
+  let () =
+    let module M : sig
+      type t with sexp
+    end = struct
+      type t with sexp
+    end in
+    ()
 end
 
 module Default = struct
