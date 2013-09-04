@@ -287,8 +287,10 @@ module Generate_sexp_of = struct
       | <:ctyp@loc< $tp1$ | $tp2$ >> ->
           <:match_case@loc< $loop tp1$ | $loop tp2$ >>
       | <:ctyp@loc< `$cnstr$ >> ->
-          <:match_case@loc< `$cnstr$ -> Sexplib.Sexp.Atom $str:cnstr$ >>
+          let str = Pa_type_conv.Gen.regular_constr_of_revised_constr cnstr in
+          <:match_case@loc< `$cnstr$ -> Sexplib.Sexp.Atom $str:str$ >>
       | <:ctyp@loc< `$cnstr$ of sexp_list $tp$>> ->
+        let str = Pa_type_conv.Gen.regular_constr_of_revised_constr cnstr in
         let cnv_expr =
           match sexp_of_type tp with
           | `Fun fun_expr -> <:expr@loc< $fun_expr$ >>
@@ -298,13 +300,14 @@ module Generate_sexp_of = struct
         <:match_case@loc<
           `$cnstr$ l ->
              Sexplib.Sexp.List
-               [ Sexplib.Sexp.Atom $str:cnstr$ ::
+               [ Sexplib.Sexp.Atom $str:str$ ::
                    Sexplib.Conv.list_map $cnv_expr$ l]
         >>
       | <:ctyp@loc< `$cnstr$ of $tps$ >> ->
+          let str = Pa_type_conv.Gen.regular_constr_of_revised_constr cnstr in
           let fps = List.map ~f:sexp_of_type (Ast.list_of_ctyp tps []) in
           let bindings, patts, vars = mk_bindings loc fps in
-          let cnstr_expr = <:expr@loc< Sexplib.Sexp.Atom $str:cnstr$ >> in
+          let cnstr_expr = <:expr@loc< Sexplib.Sexp.Atom $str:str$ >> in
           let expr =
             <:expr@loc<
               let $bindings$ in
@@ -358,8 +361,10 @@ module Generate_sexp_of = struct
     | <:ctyp@loc< $tp1$ | $tp2$ >> ->
         <:match_case@loc< $branch_sum tp1$ | $branch_sum tp2$ >>
     | <:ctyp@loc< $uid:cnstr$ >> ->
-        <:match_case@loc< $uid:cnstr$ -> Sexplib.Sexp.Atom $str:cnstr$ >>
+        let str = Pa_type_conv.Gen.regular_constr_of_revised_constr cnstr in
+        <:match_case@loc< $uid:cnstr$ -> Sexplib.Sexp.Atom $str:str$ >>
     | <:ctyp@loc< $uid:cnstr$ of sexp_list $tp$>> ->
+        let str = Pa_type_conv.Gen.regular_constr_of_revised_constr cnstr in
         let cnv_expr =
           match sexp_of_type tp with
           | `Fun fun_expr -> <:expr@loc< $fun_expr$ >>
@@ -369,12 +374,13 @@ module Generate_sexp_of = struct
         <:match_case@loc<
           $uid:cnstr$ l ->
              Sexplib.Sexp.List
-               [Sexplib.Sexp.Atom $str:cnstr$ ::
+               [Sexplib.Sexp.Atom $str:str$ ::
                    Sexplib.Conv.list_map $cnv_expr$ l]
         >>
     | <:ctyp@loc< $uid:cnstr$ of $tps$ >> ->
+        let str = Pa_type_conv.Gen.regular_constr_of_revised_constr cnstr in
         let fps = List.map ~f:sexp_of_type (Ast.list_of_ctyp tps []) in
-        let cnstr_expr = <:expr@loc< Sexplib.Sexp.Atom $str:cnstr$ >> in
+        let cnstr_expr = <:expr@loc< Sexplib.Sexp.Atom $str:str$ >> in
         let bindings, patts, vars = mk_bindings loc fps in
         let patt =
           match patts with
@@ -597,14 +603,16 @@ module Generate_sexp_of = struct
   let () = Pa_type_conv.add_generator "sexp_of" sexp_of
 
   let sexp_of_exn _rec tp =
-    let get_full_cnstr cnstr = Pa_type_conv.get_conv_path () ^ "." ^ cnstr in
+    let get_full_cnstr str = Pa_type_conv.get_conv_path () ^ "." ^ str in
     let expr =
       match tp with
       | <:ctyp@loc< $uid:cnstr$ >> ->
+          let str = Pa_type_conv.Gen.regular_constr_of_revised_constr cnstr in
           <:expr@loc<
-            Sexplib.Exn_magic.register $uid:cnstr$ $str:get_full_cnstr cnstr$
+            Sexplib.Exn_magic.register $uid:cnstr$ $str:get_full_cnstr str$
           >>
       | <:ctyp@loc< $uid:cnstr$ of $tps$ >> ->
+          let str = Pa_type_conv.Gen.regular_constr_of_revised_constr cnstr in
           let ctyps = Ast.list_of_ctyp tps [] in
           let fps = List.map ~f:sexp_of_type ctyps in
           let sexp_converters =
@@ -626,7 +634,7 @@ module Generate_sexp_of = struct
             let partial =
               <:expr@loc<
                 Sexplib.Exn_magic.$lid:register_name$
-                  $make_exc$ $str:get_full_cnstr cnstr$
+                  $make_exc$ $str:get_full_cnstr str$
               >>
             in
             Gen.apply loc partial sexp_converters
@@ -668,8 +676,9 @@ module Generate_of_sexp = struct
   (* Generate code for matching malformed S-expressions *)
   let mk_variant_other_matches loc rev_els call =
     let coll_structs acc (loc, cnstr) =
+      let str = Pa_type_conv.Gen.regular_constr_of_revised_constr cnstr in
       <:match_case@loc<
-        $str:cnstr$ -> Sexplib.Conv_error.$lid:call$ _tp_loc _sexp
+        $str:str$ -> Sexplib.Conv_error.$lid:call$ _tp_loc _sexp
       >> :: acc
     in
     let exc_no_variant_match =
@@ -795,7 +804,8 @@ module Generate_of_sexp = struct
   and mk_variant_match_atom loc full_type rev_atoms_inhs rev_structs =
     let coll (other_matches, match_last) = function
       | `A (loc, cnstr) ->
-          let new_match = <:match_case@loc< $str:cnstr$ -> `$cnstr$ >> in
+          let str = Pa_type_conv.Gen.regular_constr_of_revised_constr cnstr in
+          let new_match = <:match_case@loc< $str:str$ -> `$cnstr$ >> in
           new_match :: other_matches, false
       | `I inh ->
           handle_variant_inh full_type match_last other_matches inh
@@ -855,7 +865,8 @@ module Generate_of_sexp = struct
           has_structs_ref := true;
           let expr = mk_cnstr_args_match ~is_variant:true cnstr tps in
           let new_match =
-            <:match_case@loc< ($str:cnstr$ as _tag) -> $expr$ >>
+            let str = Pa_type_conv.Gen.regular_constr_of_revised_constr cnstr in
+            <:match_case@loc< ($str:str$ as _tag) -> $expr$ >>
           in
           new_match :: other_matches, false
       | `I inh ->
@@ -980,15 +991,17 @@ module Generate_of_sexp = struct
   (* Generate matching code for well-formed S-expressions wrt. sum types *)
   let rec mk_good_sum_matches = function
     | <:ctyp@loc< $uid:cnstr$ >> ->
-        let lccnstr = String.uncapitalize cnstr in
+        let str = Pa_type_conv.Gen.regular_constr_of_revised_constr cnstr in
+        let lcstr = String.uncapitalize str in
         <:match_case@loc<
-          Sexplib.Sexp.Atom ($str:lccnstr$ | $str:cnstr$) -> $uid:cnstr$
+          Sexplib.Sexp.Atom ($str:lcstr$ | $str:str$) -> $uid:cnstr$
         >>
     | <:ctyp@loc< $uid:cnstr$ of $tps$ >> ->
-        let lccnstr = String.uncapitalize cnstr in
+        let str = Pa_type_conv.Gen.regular_constr_of_revised_constr cnstr in
+        let lcstr = String.uncapitalize str in
         <:match_case@loc<
           (Sexplib.Sexp.List
-            [Sexplib.Sexp.Atom ($str:lccnstr$ | $str:cnstr$ as _tag) ::
+            [Sexplib.Sexp.Atom ($str:lcstr$ | $str:str$ as _tag) ::
               sexp_args] as _sexp) ->
                 $mk_cnstr_args_match ~is_variant:false cnstr tps$
         >>
@@ -1003,16 +1016,18 @@ module Generate_of_sexp = struct
      wrt. sum types *)
   let rec mk_bad_sum_matches = function
     | <:ctyp@loc< $uid:cnstr$ >> ->
-        let lccnstr = String.uncapitalize cnstr in
+        let str = Pa_type_conv.Gen.regular_constr_of_revised_constr cnstr in
+        let lcstr = String.uncapitalize str in
         <:match_case@loc<
           Sexplib.Sexp.List
-            [Sexplib.Sexp.Atom ($str:lccnstr$ | $str:cnstr$) :: _] as sexp ->
+            [Sexplib.Sexp.Atom ($str:lcstr$ | $str:str$) :: _] as sexp ->
               Sexplib.Conv_error.stag_no_args _tp_loc sexp
         >>
     | <:ctyp@loc< $uid:cnstr$ of $_$ >> ->
-        let lccnstr = String.uncapitalize cnstr in
+        let str = Pa_type_conv.Gen.regular_constr_of_revised_constr cnstr in
+        let lcstr = String.uncapitalize str in
         <:match_case@loc<
-          Sexplib.Sexp.Atom ($str:lccnstr$ | $str:cnstr$) as sexp ->
+          Sexplib.Sexp.Atom ($str:lcstr$ | $str:str$) as sexp ->
             Sexplib.Conv_error.stag_takes_args _tp_loc sexp
         >>
     | <:ctyp@loc< $tp1$ | $tp2$ >> ->

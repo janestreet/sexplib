@@ -153,3 +153,39 @@ module B = struct
   type r = { field : r -> unit }
   with sexp_of
 end
+
+module True_and_false = struct
+  type t =
+  | True
+  | False
+  with sexp
+
+  let () = assert (Sexp.to_string (sexp_of_t True) = "True")
+  let () = assert (Sexp.to_string (sexp_of_t False) = "False")
+  let () = assert (True = t_of_sexp (Sexp.of_string "True"))
+  let () = assert (False = t_of_sexp (Sexp.of_string "False"))
+  let () = assert (True = t_of_sexp (Sexp.of_string "true"))
+  let () = assert (False = t_of_sexp (Sexp.of_string "false"))
+
+  type u =
+  | True of int
+  | False of int
+  with sexp
+
+  let () = assert (Sexp.to_string (sexp_of_u (True 1)) = "(True 1)")
+  let () = assert (Sexp.to_string (sexp_of_u (False 2)) = "(False 2)")
+  let () = assert (True 1 = u_of_sexp (Sexp.of_string "(True 1)"))
+  let () = assert (False 2 = u_of_sexp (Sexp.of_string "(False 2)"))
+  let () = assert (True 1 = u_of_sexp (Sexp.of_string "(true 1)"))
+  let () = assert (False 2 = u_of_sexp (Sexp.of_string "(false 2)"))
+
+  exception True with sexp
+  let () = assert ("pa_sexp_test.ml.True_and_false.True" = Sexp.to_string (sexp_of_exn True))
+
+  exception False of int with sexp
+  let () = assert ("(pa_sexp_test.ml.True_and_false.False 1)" = Sexp.to_string (sexp_of_exn (False 1)))
+
+  type v = [ `True | `False of int ] with sexp
+  let () = assert (Sexp.to_string (sexp_of_v `True) = "True")
+  let () = assert (Sexp.to_string (sexp_of_v (`False 2)) = "(False 2)")
+end
