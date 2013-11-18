@@ -2,7 +2,7 @@ OASISFormat:      0.3
 OCamlVersion:     >= 4.00.0
 FindlibVersion:   >= 1.3.2
 Name:             sexplib
-Version:          109.47.00
+Version:          109.52.00
 Synopsis:         sexplib - automated S-expression conversion
 Authors:          Jane Street Capital LLC <opensource@janestreet.com>
 Copyrights:       (C) 2005-2013 Jane Street Capital LLC <opensource@janestreet.com>
@@ -22,6 +22,7 @@ Library sexplib
   Modules:            Conv,
                       Conv_error,
                       Exn_magic,
+                      Macro,
                       Path,
                       Pre_sexp,
                       Sexp,

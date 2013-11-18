@@ -448,6 +448,7 @@ let mk_cont_parser cont_parse = (); fun _state str ~max_pos ~pos ->
   let len = max_pos - pos + 1 in
   cont_parse ~pos ~len str
 
+
 (* Macro for generating parsers *)
 #define MK_PARSER( \
     TYPE, GET_LEN, PARSE, GET_CHAR, \

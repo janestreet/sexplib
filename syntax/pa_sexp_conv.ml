@@ -14,6 +14,11 @@ module Gen = Pa_type_conv.Gen
 
 (* Utility functions *)
 
+let replace_variables_by_underscores =
+  (Ast.map_ctyp (function
+    | <:ctyp@loc< '$_$ >> -> <:ctyp@loc< _ >>
+    | ctyp -> ctyp))#ctyp
+
 let mk_rev_bindings loc fps =
   let coll (i, bindings, patts, vars) fp =
     let name = "v" ^ string_of_int i in
@@ -85,6 +90,20 @@ let mk_poly_type make_mono_type loc type_name type_params =
     (* It's confusing that you need an application between the '!' and the '.'. I would
        have expected a list. *)
     Some <:ctyp@loc< ! $type_app first rest$ . $unquantified_type$ >>
+
+(* This transformation is sensible only when the gadt syntax is used to describe regular
+   variants or existential types but not when the return type is constrained like in [type
+   'a t = Int : int t]. In this last case, the generated code is not going to compile
+   because [sexp_of_t] would have type [('a -> Sexp.t) -> int t -> Sexp.t] and there is
+   type constraint ['a. ('a -> Sexp.t) -> 'a t -> Sexp.t]. *)
+let regular_variant_of_gadt_syntax = function
+  | <:ctyp@loc< $uid:cnstr$ : $args$ -> $return_type$ >> ->
+    ignore return_type;
+    <:ctyp@loc< $uid:cnstr$ of $args$ >>
+  | <:ctyp@loc< $uid:cnstr$ : $return_type$ >> ->
+    ignore return_type;
+    <:ctyp@loc< $uid:cnstr$ >>
+  | ctyp -> ctyp
 
 (* Generators for S-expressions *)
 
@@ -357,7 +376,8 @@ module Generate_sexp_of = struct
 
   (* Conversion of sum types *)
 
-  let rec branch_sum = function
+  let rec branch_sum ctyp =
+    match regular_variant_of_gadt_syntax ctyp with
     | <:ctyp@loc< $tp1$ | $tp2$ >> ->
         <:match_case@loc< $branch_sum tp1$ | $branch_sum tp2$ >>
     | <:ctyp@loc< $uid:cnstr$ >> ->
@@ -392,8 +412,6 @@ module Generate_sexp_of = struct
             let $bindings$ in
             Sexplib.Sexp.List $Gen.mk_expr_lst loc (cnstr_expr :: vars)$
         >>
-    | <:ctyp< $_$ : $_$ >> as tp -> Gen.error tp ~fn:"branch_sum"
-      ~msg:"GADTs are not supported by sexplib"
     | tp -> Gen.unknown_type tp "branch_sum"
 
   let sexp_of_sum alts = `Match (branch_sum alts)
@@ -730,7 +748,7 @@ module Generate_of_sexp = struct
 
   (* Conversion of types *)
   let rec type_of_sexp = function
-    | <:ctyp@loc< sexp_opaque $_$ >> ->
+    | <:ctyp@loc< sexp_opaque $_$ >> | <:ctyp@loc< _ >> ->
         `Fun <:expr@loc< Sexplib.Conv.opaque_of_sexp >>
     | <:ctyp@loc< sexp_option >> ->
         `Fun <:expr@loc< fun a_of_sexp v -> Some (a_of_sexp v) >>
@@ -794,7 +812,7 @@ module Generate_of_sexp = struct
     let new_other_matches =
       [
         <:match_case@loc<
-          _ -> try ($fun_expr$ _sexp :> $full_type$) with [ $match_exc$ ]
+          _ -> try ($fun_expr$ _sexp :> $replace_variables_by_underscores full_type$) with [ $match_exc$ ]
         >>
       ]
     in
@@ -909,15 +927,8 @@ module Generate_of_sexp = struct
 
   (* Generate matching code for variants *)
   and variant_of_sexp ?full_type row_tp =
-    let rec replace_params_with_underscores = function
-      | <:ctyp@loc< $a$ $_$ >> -> <:ctyp@loc< $replace_params_with_underscores a$ _ >>
-      | x -> x
-    in
     let loc = Ast.loc_of_ctyp row_tp in
     let row_fields = Ast.list_of_ctyp row_tp [] in
-    let row_tp =
-      Ast.tyOr_of_list (List.map row_fields ~f:replace_params_with_underscores)
-    in
     let is_contained, full_type =
       match full_type with
       | None -> true, <:ctyp@loc< [= $row_tp$ ] >>
@@ -928,7 +939,8 @@ module Generate_of_sexp = struct
       | (<:ctyp< $id:_$ >> | <:ctyp< $_$ $_$ >>) as inh :: rest ->
           let rec loop inh row_fields =
             let call =
-              <:expr@loc< ( $mk_internal_call inh$ sexp :> $full_type$ ) >>
+              <:expr@loc< ( $mk_internal_call inh$ sexp :>
+                              $replace_variables_by_underscores full_type$ ) >>
             in
             match row_fields with
             | [] -> call
@@ -989,7 +1001,8 @@ module Generate_of_sexp = struct
   (* Sum type conversions *)
 
   (* Generate matching code for well-formed S-expressions wrt. sum types *)
-  let rec mk_good_sum_matches = function
+  let rec mk_good_sum_matches ctyp =
+    match regular_variant_of_gadt_syntax ctyp with
     | <:ctyp@loc< $uid:cnstr$ >> ->
         let str = Pa_type_conv.Gen.regular_constr_of_revised_constr cnstr in
         let lcstr = String.uncapitalize str in
@@ -1014,7 +1027,8 @@ module Generate_of_sexp = struct
 
   (* Generate matching code for malformed S-expressions with good tags
      wrt. sum types *)
-  let rec mk_bad_sum_matches = function
+  let rec mk_bad_sum_matches ctyp =
+    match regular_variant_of_gadt_syntax ctyp with
     | <:ctyp@loc< $uid:cnstr$ >> ->
         let str = Pa_type_conv.Gen.regular_constr_of_revised_constr cnstr in
         let lcstr = String.uncapitalize str in

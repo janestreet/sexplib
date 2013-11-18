@@ -22,9 +22,9 @@ let () =
    says that this definition is recursive *)
 type r = { r : int } with sexp
 
-module A = struct
+module Field_name_should_not_be_rewritten = struct
   type nonrec r = { r : r }
-  let _ (r : r) = r.r (* checking that the field is not rewritten *)
+  let _ (r : r) = r.r
 end
 
 module No_unused_value_warnings : sig end = struct
@@ -111,6 +111,13 @@ module Type_alias = struct
   end
 end
 
+module Tricky_variants = struct
+  (* Checking that the generated code compiles (there used to be a problem with subtyping
+     constraints preventing proper generalization). *)
+  type t = [ `a ] with sexp
+  type 'a u = [ t | `b of 'a ] * int with sexp
+end
+
 module Drop_default = struct
   type t = {
     a : int with default(2), sexp_drop_default;
@@ -148,8 +155,7 @@ module Drop_if = struct
   } with sexp
 end
 
-module B = struct
-  (* checking that there is no warning about 'unused rec'  *)
+module No_unused_rec_warning = struct
   type r = { field : r -> unit }
   with sexp_of
 end
@@ -188,4 +194,26 @@ module True_and_false = struct
   type v = [ `True | `False of int ] with sexp
   let () = assert (Sexp.to_string (sexp_of_v `True) = "True")
   let () = assert (Sexp.to_string (sexp_of_v (`False 2)) = "(False 2)")
+end
+
+module Gadt_syntax = struct
+  (* plain type without argument *)
+  type 'a s = Packed : 'a s with sexp
+  let () = assert (Sexp.to_string (<:sexp_of< int s >> Packed) = "Packed")
+  let () = assert (Packed = <:of_sexp< int s >> (Sexp.of_string "Packed"))
+
+  (* two kind of existential variables *)
+  type 'a t = Packed : 'a * _ * 'b sexp_opaque -> 'a t with sexp
+  let () = assert (Sexp.to_string (<:sexp_of< int t >> (Packed (2, "asd", 1.))) =
+                   "(Packed 2 _ <opaque>)")
+
+  (* plain type with argument *)
+  type 'a u = A : 'a -> 'a u with sexp
+  let () = assert (Sexp.to_string (<:sexp_of< int u >> (A 2)) = "(A 2)")
+  let () = assert (A 2 = <:of_sexp< int u >> (Sexp.of_string "(A 2)"))
+
+  (* recursive *)
+  type v = A : v option -> v with sexp
+  let () = assert (Sexp.to_string (<:sexp_of< v >> (A (Some (A None)))) = "(A((A())))")
+  let () = assert (A (Some (A None)) = <:of_sexp< v >> (Sexp.of_string "(A((A())))"))
 end

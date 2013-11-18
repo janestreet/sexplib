@@ -40,6 +40,8 @@ module Lazy = struct
   let sexp_of_t = Conv.sexp_of_lazy_t
 end
 
+module Macro = Macro
+
 let sexp_of_unit = Conv.sexp_of_unit
 let unit_of_sexp = Conv.unit_of_sexp
 
