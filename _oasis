@@ -2,7 +2,7 @@ OASISFormat:      0.3
 OCamlVersion:     >= 4.00.0
 FindlibVersion:   >= 1.3.2
 Name:             sexplib
-Version:          109.52.00
+Version:          109.53.00
 Synopsis:         sexplib - automated S-expression conversion
 Authors:          Jane Street Capital LLC <opensource@janestreet.com>
 Copyrights:       (C) 2005-2013 Jane Street Capital LLC <opensource@janestreet.com>
@@ -35,8 +35,15 @@ Library sexplib
                       Parser,
                       Parser_with_layout,
                       Lexer
-  BuildDepends:       unix,bigarray,num
-  XMETARequires:      unix,bigarray,num
+  BuildDepends:       unix,bigarray
+
+Library sexplib_num
+  Path:               num/lib
+  FindlibName:        sexplib_num
+  Pack:               true
+  Modules:            Sexplib_num_conv,
+                      Std
+  BuildDepends:       sexplib,num
 
 Library pa_sexp_conv
   Path:               syntax

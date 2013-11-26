@@ -90,22 +90,6 @@ val sexp_of_nativeint : nativeint -> Sexp.t
 (** [sexp_of_nativeint n] converts the value [n] of type [nativeint] to an
     S-expression. *)
 
-val sexp_of_big_int : Big_int.big_int -> Sexp.t
-(** [sexp_of_big_int n] converts the value [n] of type [Big_int.big_int]
-    to an S-expression. *)
-
-val sexp_of_nat : Nat.nat -> Sexp.t
-(** [sexp_of_nat n] converts the value [n] of type [Nat.nat] to an
-    S-expression. *)
-
-val sexp_of_num : Num.num -> Sexp.t
-(** [sexp_of_num n] converts the value [n] of type [Num.num] to an
-    S-expression. *)
-
-val sexp_of_ratio : Ratio.ratio -> Sexp.t
-(** [sexp_of_ratio n] converts the value [n] of type [Ratio.ratio] to an
-    S-expression. *)
-
 val sexp_of_ref : ('a -> Sexp.t) -> 'a ref -> Sexp.t
 (** [sexp_of_ref conv r] converts the value [r] of type ['a ref] to
     an S-expression.  Uses [conv] to convert values of type ['a] to an
@@ -242,22 +226,6 @@ val int64_of_sexp : Sexp.t -> int64
 val nativeint_of_sexp : Sexp.t -> nativeint
 (** [nativeint_of_sexp sexp] converts S-expression [sexp] to a value
     of type [nativeint]. *)
-
-val big_int_of_sexp : Sexp.t -> Big_int.big_int
-(** [big_int_of_sexp sexp] converts S-expression [sexp] to a value
-    of type [Big_int.big_int]. *)
-
-val nat_of_sexp : Sexp.t -> Nat.nat
-(** [nat_of_sexp sexp] converts S-expression [sexp] to a value
-    of type [Nat.nat]. *)
-
-val num_of_sexp : Sexp.t -> Num.num
-(** [num_of_sexp sexp] converts S-expression [sexp] to a value
-    of type [Nat.num]. *)
-
-val ratio_of_sexp : Sexp.t -> Ratio.ratio
-(** [ratio_of_sexp sexp] converts S-expression [sexp] to a value
-    of type [Nat.ratio]. *)
 
 val ref_of_sexp : (Sexp.t -> 'a) -> Sexp.t -> 'a ref
 (** [ref_of_sexp conv sexp] converts S-expression [sexp] to a value

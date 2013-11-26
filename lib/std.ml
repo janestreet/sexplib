@@ -5,34 +5,6 @@ module Hashtbl = struct
   let t_of_sexp = Conv.hashtbl_of_sexp
 end
 
-module Big_int = struct
-  include Big_int
-
-  let sexp_of_big_int = Conv.sexp_of_big_int
-  let big_int_of_sexp = Conv.big_int_of_sexp
-end
-
-module Nat = struct
-  include Nat
-
-  let sexp_of_nat = Conv.sexp_of_nat
-  let nat_of_sexp = Conv.nat_of_sexp
-end
-
-module Num = struct
-  include Num
-
-  let sexp_of_num = Conv.sexp_of_num
-  let num_of_sexp = Conv.num_of_sexp
-end
-
-module Ratio = struct
-  include Ratio
-
-  let sexp_of_ratio = Conv.sexp_of_ratio
-  let ratio_of_sexp = Conv.ratio_of_sexp
-end
-
 module Lazy = struct
   include Lazy
 

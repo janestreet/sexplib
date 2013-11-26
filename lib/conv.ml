@@ -20,10 +20,25 @@ type mat = float64_mat
 
 (* Conversion of OCaml-values to S-expressions *)
 
-(* Some basic experiments indicate that %.20G is enough to round-trip
-   a float through the sexp-converter, (although that was done long ago,
-   and there's no real guarantee) *)
-let default_string_of_float = ref (fun n -> sprintf "%.20G" n)
+external format_float : string -> float -> string = "caml_format_float"
+
+(* '%.17g' is guaranteed to be round-trippable.
+
+   '%.15g' will be round-trippable and not have noise at the last digit or two for a float
+   which was converted from a decimal (string) with <= 15 significant digits.  So it's
+   worth trying first to avoid things like "3.1400000000000001".
+
+   See comment above [to_string_round_trippable] in [base/core/kernel/lib/float.ml] for
+   detailed explanation and examples. *)
+let default_string_of_float =
+  ref (fun x ->
+    let y = format_float "%.15G" x in
+    if float_of_string y = x then
+      y
+    else
+      format_float "%.17G" x)
+;;
+
 let read_old_option_format = ref true
 let write_old_option_format = ref true
 
@@ -38,10 +53,6 @@ let sexp_of_float n = Atom (!default_string_of_float n)
 let sexp_of_int32 n = Atom (Int32.to_string n)
 let sexp_of_int64 n = Atom (Int64.to_string n)
 let sexp_of_nativeint n = Atom (Nativeint.to_string n)
-let sexp_of_big_int n = Atom (Big_int.string_of_big_int n)
-let sexp_of_nat n = Atom (Nat.string_of_nat n)
-let sexp_of_num n = Atom (Num.string_of_num n)
-let sexp_of_ratio n = Atom (Ratio.string_of_ratio n)
 let sexp_of_ref sexp_of__a rf = sexp_of__a !rf
 let sexp_of_lazy_t sexp_of__a lv = sexp_of__a (Lazy.force lv)
 
@@ -336,34 +347,6 @@ let nativeint_of_sexp sexp = match sexp with
       with exc ->
         of_sexp_error ("nativeint_of_sexp: " ^ exn_to_string exc) sexp)
   | List _ -> of_sexp_error "nativeint_of_sexp: atom needed" sexp
-
-let big_int_of_sexp sexp = match sexp with
-  | Atom str ->
-      (try Big_int.big_int_of_string str
-      with exc ->
-        of_sexp_error ("big_int_of_sexp: " ^ exn_to_string exc) sexp)
-  | List _ -> of_sexp_error "big_int_of_sexp: atom needed" sexp
-
-let nat_of_sexp sexp = match sexp with
-  | Atom str ->
-      (try Nat.nat_of_string str
-      with exc ->
-        of_sexp_error ("nat_of_sexp: " ^ exn_to_string exc) sexp)
-  | List _ -> of_sexp_error "nat_of_sexp: atom needed" sexp
-
-let num_of_sexp sexp = match sexp with
-  | Atom str ->
-      (try Num.num_of_string str
-      with exc ->
-        of_sexp_error ("num_of_sexp: " ^ exn_to_string exc) sexp)
-  | List _ -> of_sexp_error "num_of_sexp: atom needed" sexp
-
-let ratio_of_sexp sexp = match sexp with
-  | Atom str ->
-      (try Ratio.ratio_of_string str
-      with exc ->
-        of_sexp_error ("ratio_of_sexp: " ^ exn_to_string exc) sexp)
-  | List _ -> of_sexp_error "ratio_of_sexp: atom needed" sexp
 
 let ref_of_sexp a__of_sexp sexp = ref (a__of_sexp sexp)
 let lazy_t_of_sexp a__of_sexp sexp = Lazy.lazy_from_val (a__of_sexp sexp)
