@@ -29,24 +29,65 @@ let must_escape str =
     in
     loop (len - 1)
 
-let maybe_esc_str str =
-  if must_escape str then
-    let estr = String.escaped str in
-    let elen = String.length estr in
-    let res = String.create (elen + 2) in
-    String.blit estr 0 res 1 elen;
-    res.[0] <- '"';
-    res.[elen + 1] <- '"';
-    res
-  else str
+let esc_str str =
+  let estr = String.escaped str in
+  let elen = String.length estr in
+  let res = String.create (elen + 2) in
+  String.blit estr 0 res 1 elen;
+  res.[0] <- '"';
+  res.[elen + 1] <- '"';
+  res
 
-let pp_maybe_esc_str ppf str = pp_print_string ppf (maybe_esc_str str)
+let index_of_newline str start =
+  try Some (String.index_from str start '\n')
+  with Not_found -> None
 
+let get_substring str index end_pos_opt =
+  let end_pos =
+    match end_pos_opt with
+    | None -> String.length str
+    | Some end_pos -> end_pos
+  in
+  String.sub str index (end_pos - index)
+
+let is_one_line str =
+  match index_of_newline str 0 with
+  | None -> true
+  | Some index -> index + 1 = String.length str
+
+let pp_hum_maybe_esc_str ppf str =
+  if not (must_escape str) then
+    pp_print_string ppf str
+  else if is_one_line str then
+    pp_print_string ppf (esc_str str)
+  else begin
+    let rec loop index =
+      let next_newline = index_of_newline str index in
+      let next_line = get_substring str index next_newline in
+      pp_print_string ppf (String.escaped next_line);
+      match next_newline with
+      | None ->  ()
+      | Some newline_index ->
+        pp_print_string ppf "\\";
+        pp_force_newline ppf ();
+        pp_print_string ppf "\\n";
+        loop (newline_index + 1)
+    in
+    pp_open_box ppf 0;
+    (* the leading space is to line up the lines *)
+    pp_print_string ppf " \"";
+    loop 0;
+    pp_print_string ppf "\"";
+    pp_close_box ppf ();
+  end
+
+let mach_maybe_esc_str str =
+  if must_escape str then esc_str str else str
 
 (* Output of S-expressions to formatters *)
 
 let rec pp_hum_indent indent ppf = function
-  | Atom str -> pp_maybe_esc_str ppf str
+  | Atom str -> pp_hum_maybe_esc_str ppf str
   | List (h :: t) ->
       pp_open_box ppf indent;
       pp_print_string ppf "(";
@@ -65,7 +106,7 @@ and pp_hum_rest indent ppf = function
 
 let rec pp_mach_internal may_need_space ppf = function
   | Atom str ->
-      let str' = maybe_esc_str str in
+      let str' = mach_maybe_esc_str str in
       let new_may_need_space = str' == str in
       if may_need_space && new_may_need_space then pp_print_string ppf " ";
       pp_print_string ppf str';
@@ -106,7 +147,7 @@ let to_buffer_hum ~buf ?(indent = !default_indent) sexp =
 let to_buffer_mach ~buf sexp =
   let rec loop may_need_space = function
     | Atom str ->
-        let str' = maybe_esc_str str in
+        let str' = mach_maybe_esc_str str in
         let new_may_need_space = str' == str in
         if may_need_space && new_may_need_space then Buffer.add_char buf ' ';
         Buffer.add_string buf str';
@@ -129,7 +170,7 @@ let to_buffer = to_buffer_mach
 let to_buffer_gen ~buf ~add_char ~add_string sexp =
   let rec loop may_need_space = function
     | Atom str ->
-        let str' = maybe_esc_str str in
+        let str' = mach_maybe_esc_str str in
         let new_may_need_space = str' == str in
         if may_need_space && new_may_need_space then add_char buf ' ';
         add_string buf str';
@@ -255,14 +296,15 @@ let save_sexps = save_sexps_mach
 (* String conversions *)
 
 let to_string_hum ?indent = function
-  | Atom str -> maybe_esc_str str
+  | Atom str when index_of_newline str 0 = None ->
+    mach_maybe_esc_str str
   | sexp ->
       let buf = buffer () in
       to_buffer_hum ?indent sexp ~buf;
       Buffer.contents buf
 
 let to_string_mach = function
-  | Atom str -> maybe_esc_str str
+  | Atom str -> mach_maybe_esc_str str
   | sexp ->
       let buf = buffer () in
       to_buffer_mach sexp ~buf;

@@ -493,7 +493,7 @@ let of_string__of__of_sexp of_sexp s =
 (* Registering default exception printers *)
 
 let get_flc_error name (file, line, chr) =
-  List [Atom name; Atom file; sexp_of_int line; sexp_of_int chr]
+  Atom (sprintf "%s %s:%d:%d" name file line chr)
 
 let () =
   List.iter

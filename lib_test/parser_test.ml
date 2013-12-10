@@ -108,6 +108,12 @@ let list_parsers = [
 let tests = ref 0
 let failures = ref 0
 
+let string_of_loc loc =
+  Printf.sprintf "%s:%d:%d"
+    loc.Lexing.pos_fname
+    loc.Lexing.pos_lnum
+    (loc.Lexing.pos_cnum - loc.Lexing.pos_bol)
+
 let same_parse_tree ?no_following_sibling ?(use_list_parsers=false) loc string1 string2 =
   let context_wrappers = wrap_in_context ?no_following_sibling () in
   List.iter (fun context_wrapper ->
@@ -125,14 +131,14 @@ let same_parse_tree ?no_following_sibling ?(use_list_parsers=false) loc string1 
             incr failures;
             Printf.printf
               "test failure at %s (%s, %s)\n  string1: %S tree1: %s\n  string2: %S tree2: %s\n%!"
-              loc parser_name newline_style
+              (string_of_loc loc) parser_name newline_style
               string1 (Sexp.to_string tree1)
               string2 (Sexp.to_string tree2)
           )
         with e ->
           incr failures;
           Printf.printf "test failure at %s (%s, %s, %s) on %S vs %S\n%!"
-            loc (Printexc.to_string e) parser_name newline_style string1 string2
+            (string_of_loc loc) (Printexc.to_string e) parser_name newline_style string1 string2
       ) newline_adapters
     ) (if use_list_parsers then list_parsers else parsers)
   ) context_wrappers
@@ -153,12 +159,12 @@ let parse_fail ?no_following_sibling ?(use_list_parsers=false) loc string f =
           incr failures;
           Printf.printf
             "test failure at %s (%s, %s): should have thrown an exception\nstring: %S tree: %s\n%!"
-            loc parser_name newline_style string (Sexp.to_string tree)
+            (string_of_loc loc) parser_name newline_style string (Sexp.to_string tree)
         with e ->
           if not (f e) then (
             incr failures;
             Printf.printf "test failure at %s (%s, %s, %s)\n%!"
-              loc (Printexc.to_string e) parser_name newline_style
+              (string_of_loc loc) (Printexc.to_string e) parser_name newline_style
           )
       ) newline_adapters
     ) (if use_list_parsers then list_parsers else parsers)
@@ -166,11 +172,6 @@ let parse_fail ?no_following_sibling ?(use_list_parsers=false) loc string f =
 
 let parse_fail_trees ?no_following_sibling loc string f =
   parse_fail ?no_following_sibling ~use_list_parsers:true loc string f
-
-#define _here_ \
-    (try assert false; exit 45 \
-     with Assert_failure (position, line, col) -> \
-       Printf.sprintf "%s:%d:%d" position line col)
 
 let grep pattern string =
   (* hopefully there is no need for escaping *)

@@ -1,6 +1,6 @@
 # OASIS_START
 # OASIS_STOP
-<lib/pre_sexp.ml>: pp(cpp -undef -traditional -I/mnt/local/sda1/jdimino/git/sexplib/syntax)
+<lib/pre_sexp.ml>: pp(cpp -undef -traditional -Isyntax)
 <lib_test/*.ml{,i}>: syntax_camlp4o, pkg_type_conv.syntax
 <lib_test/conv_test.byte>: use_sexplib, pkg_unix, pkg_num, pkg_bigarray
 <syntax/pa_sexp_conv.ml>: syntax_camlp4o

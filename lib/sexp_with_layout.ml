@@ -109,7 +109,7 @@ module Render = struct
     | Atom (delta, text, fmt_text) ->
       let fmt_text =
         match fmt_text with
-        | None | Some "" -> Pre_sexp.maybe_esc_str text
+        | None | Some "" -> Pre_sexp.mach_maybe_esc_str text
         | Some text -> text
       in
       let unescaped = fmt_text.[0] <> '"' in
