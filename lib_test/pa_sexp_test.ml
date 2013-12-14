@@ -217,3 +217,12 @@ module Gadt_syntax = struct
   let () = assert (Sexp.to_string (<:sexp_of< v >> (A (Some (A None)))) = "(A((A())))")
   let () = assert (A (Some (A None)) = <:of_sexp< v >> (Sexp.of_string "(A((A())))"))
 end
+
+
+(* Checking that record field disambiguation (OCaml 4.01)
+   doesn't cause any problems *)
+module Record_field_disambiguation = struct
+
+  type a = { fl: float } and b = { fl: int } with sexp
+
+end
