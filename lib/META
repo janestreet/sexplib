@@ -1,6 +1,6 @@
 # OASIS_START
-# DO NOT EDIT (digest: a58a1565d6f7306cbbf4b8821aff8e83)
-version = "109.55.01"
+# DO NOT EDIT (digest: d33d914f76e83038d8343ee7253b8cb6)
+version = "109.55.02"
 description = "sexplib - automated S-expression conversion"
 requires = "unix bigarray"
 archive(byte) = "sexplib.cma"
@@ -9,7 +9,7 @@ archive(native) = "sexplib.cmxa"
 archive(native, plugin) = "sexplib.cmxs"
 exists_if = "sexplib.cma"
 package "top" (
- version = "109.55.01"
+ version = "109.55.02"
  description = "Toplevel printers for S-expressions"
  requires = "sexplib"
  archive(byte) = "sexplib_top.cma"
@@ -20,7 +20,7 @@ package "top" (
 )
 
 package "syntax" (
- version = "109.55.01"
+ version = "109.55.02"
  description = "Syntax extension for Sexplib"
  requires = "camlp4 type_conv sexplib"
  archive(syntax, preprocessor) = "pa_sexp_conv.cma"
