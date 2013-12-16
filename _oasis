@@ -77,7 +77,7 @@ Executable conv_test
   MainIs:             conv_test.ml
   Build$:             flag(tests)
   Install:            false
-  BuildDepends:       sexplib, sexplib.syntax
+  BuildDepends:       sexplib, sexplib_num, sexplib.syntax
 
 Test sexp
   Run$:               flag(tests)
