@@ -1,7 +1,7 @@
 # OASIS_START
-# DO NOT EDIT (digest: c989ad518b3fa329c546ff10142e1464)
-# Ignore VCS directories, you can use the same kind of rule outside 
-# OASIS_START/STOP if you want to exclude directories that contains 
+# DO NOT EDIT (digest: 837da2924466800f0d18f9756d6eee7d)
+# Ignore VCS directories, you can use the same kind of rule outside
+# OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
 <**/.svn>: -traverse
 <**/.svn>: not_hygienic
@@ -31,42 +31,42 @@
 "lib/parser.cmx": for-pack(Sexplib)
 "lib/parser_with_layout.cmx": for-pack(Sexplib)
 "lib/lexer.cmx": for-pack(Sexplib)
-<lib/*.ml{,i}>: pkg_unix
-<lib/*.ml{,i}>: pkg_bigarray
+<lib/*.ml{,i}>: package(unix)
+<lib/*.ml{,i}>: package(bigarray)
 # Library sexplib_num
 "num/lib/sexplib_num.cmxs": use_sexplib_num
 "num/lib/sexplib_num_conv.cmx": for-pack(Sexplib_num)
 "num/lib/std.cmx": for-pack(Sexplib_num)
 <num/lib/*.ml{,i}>: use_sexplib
-<num/lib/*.ml{,i}>: pkg_num
-<num/lib/*.ml{,i}>: pkg_unix
-<num/lib/*.ml{,i}>: pkg_bigarray
+<num/lib/*.ml{,i}>: package(num)
+<num/lib/*.ml{,i}>: package(unix)
+<num/lib/*.ml{,i}>: package(bigarray)
 # Library pa_sexp_conv
 "syntax/pa_sexp_conv.cmxs": use_pa_sexp_conv
-<syntax/*.ml{,i}>: pkg_camlp4.quotations
-<syntax/*.ml{,i}>: pkg_camlp4.extend
-<syntax/*.ml{,i}>: pkg_type_conv
+<syntax/*.ml{,i}>: package(camlp4.quotations)
+<syntax/*.ml{,i}>: package(camlp4.extend)
+<syntax/*.ml{,i}>: package(type_conv)
 # Library sexplib_top
 "top/sexplib_top.cmxs": use_sexplib_top
 # Executable sexp_test
 "lib_test/sexp_test.byte": use_sexplib
-"lib_test/sexp_test.byte": pkg_unix
-"lib_test/sexp_test.byte": pkg_bigarray
+"lib_test/sexp_test.byte": package(unix)
+"lib_test/sexp_test.byte": package(bigarray)
 # Executable conv_test
 "lib_test/conv_test.byte": use_sexplib
 "lib_test/conv_test.byte": use_pa_sexp_conv
-"lib_test/conv_test.byte": pkg_camlp4.quotations
-"lib_test/conv_test.byte": pkg_camlp4.extend
-"lib_test/conv_test.byte": pkg_type_conv
-"lib_test/conv_test.byte": pkg_unix
-"lib_test/conv_test.byte": pkg_bigarray
+"lib_test/conv_test.byte": package(camlp4.quotations)
+"lib_test/conv_test.byte": package(camlp4.extend)
+"lib_test/conv_test.byte": package(type_conv)
+"lib_test/conv_test.byte": package(unix)
+"lib_test/conv_test.byte": package(bigarray)
 <lib_test/*.ml{,i}>: use_sexplib
 <lib_test/*.ml{,i}>: use_pa_sexp_conv
-<lib_test/*.ml{,i}>: pkg_camlp4.quotations
-<lib_test/*.ml{,i}>: pkg_camlp4.extend
-<lib_test/*.ml{,i}>: pkg_type_conv
-<lib_test/*.ml{,i}>: pkg_unix
-<lib_test/*.ml{,i}>: pkg_bigarray
+<lib_test/*.ml{,i}>: package(camlp4.quotations)
+<lib_test/*.ml{,i}>: package(camlp4.extend)
+<lib_test/*.ml{,i}>: package(type_conv)
+<lib_test/*.ml{,i}>: package(unix)
+<lib_test/*.ml{,i}>: package(bigarray)
 # OASIS_STOP
 <lib/pre_sexp.ml>: pp(cpp -undef -traditional -Isyntax)
 <lib_test/*.ml{,i}>: syntax_camlp4o, pkg_type_conv.syntax

@@ -1,6 +1,6 @@
 # OASIS_START
-# DO NOT EDIT (digest: 79a10783b4df1b8cf737344a2cab5e49)
-version = "109.55.00"
+# DO NOT EDIT (digest: b00ea12794e1ffeec10c2790b8c26ce4)
+version = "109.55.01"
 description = "sexplib - automated S-expression conversion"
 requires = "sexplib num"
 archive(byte) = "sexplib_num.cma"
