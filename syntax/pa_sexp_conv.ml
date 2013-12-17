@@ -591,12 +591,12 @@ module Generate_sexp_of = struct
         ~f:(fun ty -> <:patt@loc< $lid:"_of_" ^ Gen.get_tparam_id ty$>>)
     in
     let body = Gen.abstract loc patts body in
-    let body =
+    let annot =
       match mk_poly_type Sig_generate_sexp_of.sig_of_td__loop loc type_name tps with
-      | None -> body
-      | Some typ -> <:expr@loc< ( $body$ : $typ$ ) >>
+      | None -> <:ctyp@loc< $lid:type_name$ -> Sexplib.Sexp.t >>
+      | Some typ -> typ
     in
-    <:binding@loc< $lid:"sexp_of_" ^ type_name$ = $body$ >>
+    <:binding@loc< ($lid:"sexp_of_" ^ type_name$ : $annot$) = $body$ >>
 
   let rec sexp_of_tds = function
     | Ast.TyDcl (loc, type_name, tps, rhs, _cl) ->
@@ -1424,15 +1424,15 @@ module Generate_of_sexp = struct
     let type_of_of_sexp =
       mk_poly_type Sig_generate_of_sexp.sig_of_td__loop loc type_name tps
     in
-    let maybe_annotate expr =
+    let annot =
       match type_of_of_sexp with
-      | None -> expr
-      | Some typ -> <:expr@loc< ( $expr$ : $typ$ ) >>
+      | None -> <:ctyp@loc< Sexplib.Sexp.t -> $lid:type_name$ >>
+      | Some typ -> typ
     in
-    let internal_fun_body = maybe_annotate internal_fun_body in
-    let external_fun_body = maybe_annotate external_fun_body in
-    let internal_binding = <:binding@loc< $lid:internal_name$ = $internal_fun_body$ >> in
-    let external_binding = <:binding@loc< $lid:external_name$ = $external_fun_body$ >> in
+    let internal_binding =
+      <:binding@loc< ($lid:internal_name$ : $annot$) = $internal_fun_body$ >> in
+    let external_binding =
+      <:binding@loc< ($lid:external_name$ : $annot$) = $external_fun_body$ >> in
     internal_binding, external_binding
 
   let rec tds_of_sexp acc = function
