@@ -41,23 +41,23 @@
    -------
 
    Assume that [input.sexp] contains
-   {|
+   {[
    (:include defs.sexp)
    (:include template.sexp)
    (:use f (a (:use a)) (b (:use b)))
    )
-   |}
+   ]}
 
    the file [defs.sexp] contains
-   {|
+   {[
    (:let a () hello)
    (:let b () " world")
-   |}
+   ]}
 
    and the file [template.sexp] contains
-   {|
+   {[
    (:let f (a b) (:concat (:use a) (:use b)))
-   |}
+   ]}
 
    Then [load_sexp "input.sexp"] will return "hello world".
 
@@ -74,7 +74,7 @@
 
    First some boilerplate rules: a sexp without macros evaluates to itself:
 
-   {|
+   {[
    V : <empty sexp list> => <empty sexp list>
 
    V : S  => SS1
@@ -89,11 +89,11 @@
    V : SS => SS'
    -----------------
    V : (SS) => (SS')
-   |}
+   ]}
 
    Now the interesting rules.
 
-   {|
+   {[
    free_vars(SSv) = {v1, ..., vn}
    V(v ~> SSv) : SS => SS'
    --------------------------------------
@@ -113,7 +113,7 @@
    Each Ci is an atom
    -------------------------------------------------------
    V : (:concat S1 ... Sn) => String.concat [C1; ...; Cn]
-   |}
+   ]}
 
    As follows from the let-rule, let definitions may only refer to the variables
    explicitly mentioned in the argument list. This avoids the complexities of
