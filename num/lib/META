@@ -1,0 +1,12 @@
+# OASIS_START
+# DO NOT EDIT (digest: e1b28febc0b0c7f355a668957b8a2e59)
+version = "109.60.00"
+description = "sexplib - automated S-expression conversion"
+requires = "sexplib num"
+archive(byte) = "sexplib_num.cma"
+archive(byte, plugin) = "sexplib_num.cma"
+archive(native) = "sexplib_num.cmxa"
+archive(native, plugin) = "sexplib_num.cmxs"
+exists_if = "sexplib_num.cma"
+# OASIS_STOP
+
