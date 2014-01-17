@@ -590,13 +590,6 @@ let () =
         | Sys.Break -> Atom "Sys.Break"
         | _ -> assert false)
       );(
-        Unix.Unix_error (Unix.E2BIG, "", ""),
-        (function
-        | Unix.Unix_error (err, loc, arg) ->
-            let err_str = Unix.error_message err in
-            List [Atom "Unix.Unix_error"; Atom err_str; Atom loc; Atom arg]
-        | _ -> assert false)
-      );(
         Of_sexp_error (Exit, Atom ""),
         (function
         | Of_sexp_error (exc, sexp) ->
