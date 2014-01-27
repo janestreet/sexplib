@@ -14,6 +14,11 @@ module Gen = Pa_type_conv.Gen
 
 (* Utility functions *)
 
+let rec go_through_private_and_manifest_types = function
+  | <:ctyp< private $tp$ >> -> (true, tp)
+  | <:ctyp< $_$ == $tp$ >>  -> go_through_private_and_manifest_types tp
+  | tp                      -> (false, tp)
+
 let replace_variables_by_underscores =
   (Ast.map_ctyp (function
     | <:ctyp@loc< '$_$ >> -> <:ctyp@loc< _ >>
@@ -82,14 +87,15 @@ let type_app base_type types =
    non-regular types, such as [ type t 'a = [ A of 'a | B of t 'a 'a ] ]. *)
 let mk_poly_type make_mono_type loc type_name type_params =
   let type_params = List.map type_params ~f:Gen.drop_variance_annotations in
+  let unquantified_type = make_mono_type <:ctyp@loc< $lid:type_name$ >> type_params in
+  let loc = Ast.loc_of_ctyp unquantified_type in
   match type_params with
-  | [] -> None
+  | [] ->
+    <:ctyp@loc< $unquantified_type$ >>
   | first :: rest ->
-    let unquantified_type = make_mono_type <:ctyp@loc< $lid:type_name$ >> type_params in
-    let loc = Ast.loc_of_ctyp unquantified_type in
     (* It's confusing that you need an application between the '!' and the '.'. I would
        have expected a list. *)
-    Some <:ctyp@loc< ! $type_app first rest$ . $unquantified_type$ >>
+    <:ctyp@loc< ! $type_app first rest$ . $unquantified_type$ >>
 
 (* This transformation is sensible only when the gadt syntax is used to describe regular
    variants or existential types but not when the return type is constrained like in [type
@@ -564,26 +570,37 @@ module Generate_sexp_of = struct
   (* Empty type *)
   let sexp_of_nil loc = `Fun <:expr@loc< fun _v -> assert False >>
 
-
   (* Generate code from type definitions *)
 
   let sexp_of_td loc type_name tps rhs =
+    let is_private, rhs = go_through_private_and_manifest_types rhs in
     let body =
-      let rec loop tp =
-        Gen.switch_tp_def tp
-          ~alias:(fun (_ : Loc.t) tp -> sexp_of_type tp)
-          ~sum:(fun (_ : Loc.t) tp -> sexp_of_sum tp)
-          ~record:(fun (_ : Loc.t) tp -> sexp_of_record tp)
-          ~variants:(fun (_ : Loc.t) tp -> sexp_of_variant tp)
-          ~mani:(fun (_ : Loc.t) _tp1 tp2 -> loop tp2)
-          ~nil:sexp_of_nil
+      let is_private_alias, body =
+        Gen.switch_tp_def rhs
+          ~alias:   (fun (_ : Loc.t) tp  -> (is_private, sexp_of_type    tp))
+          ~sum:     (fun (_ : Loc.t) tp  -> (false     , sexp_of_sum     tp))
+          ~record:  (fun (_ : Loc.t) tp  -> (false     , sexp_of_record  tp))
+          ~variants:(fun (_ : Loc.t) tp  -> (false     , sexp_of_variant tp))
+          ~mani:    (fun (_ : Loc.t) _ _ -> assert false                    )
+          ~nil:     (fun loc             -> (false     , sexp_of_nil loc   ))
       in
-      match loop rhs with
-      | `Fun fun_expr ->
-          (* Prevent violation of value restriction and problems with
-             recursive types by eta-expanding function definitions *)
+      if is_private_alias then
+        (* Replace all type variable by _ to avoid generalization problems *)
+        let ty_src = mk_full_type loc type_name tps in
+        let ty_dst = replace_variables_by_underscores rhs in
+        let coercion = <:expr@loc< (v : $ty_src$ :> $ty_dst$) >> in
+        match body with
+        | `Fun fun_expr ->
+          <:expr@loc< fun [ v -> $fun_expr$ $coercion$ ] >>
+        | `Match matchings ->
+          <:expr@loc< fun [ v -> match $coercion$ with [ $matchings$ ] ] >>
+      else
+        match body with
+        | `Fun fun_expr ->
+          (* Prevent violation of value restriction and problems with recursive types by
+             eta-expanding function definitions *)
           <:expr@loc< fun [ v -> $fun_expr$ v ] >>
-      | `Match matchings ->
+        | `Match matchings ->
           <:expr@loc< fun [ $matchings$ ] >>
     in
     let patts =
@@ -591,12 +608,8 @@ module Generate_sexp_of = struct
         ~f:(fun ty -> <:patt@loc< $lid:"_of_" ^ Gen.get_tparam_id ty$>>)
     in
     let body = Gen.abstract loc patts body in
-    let body =
-      match mk_poly_type Sig_generate_sexp_of.sig_of_td__loop loc type_name tps with
-      | None -> body
-      | Some typ -> <:expr@loc< ( $body$ : $typ$ ) >>
-    in
-    <:binding@loc< $lid:"sexp_of_" ^ type_name$ = $body$ >>
+    let annot = mk_poly_type Sig_generate_sexp_of.sig_of_td__loop loc type_name tps in
+    <:binding@loc< $lid:"sexp_of_" ^ type_name$ : $annot$ = $body$ >>
 
   let rec sexp_of_tds = function
     | Ast.TyDcl (loc, type_name, tps, rhs, _cl) ->
@@ -1342,17 +1355,19 @@ module Generate_of_sexp = struct
       is_variant_ref := true;
       variant_of_sexp ~full_type row_fields
     in
+    let is_private, rhs = go_through_private_and_manifest_types rhs in
+    if is_private then Loc.raise loc (Failure "of_sexp is not supported for private type");
     let body =
-      let rec loop tp =
-        Gen.switch_tp_def tp
-          ~alias:(fun (_ : Loc.t) tp -> handle_alias tp)
-          ~sum:(fun (_ : Loc.t) tp -> sum_of_sexp tp)
-          ~record:(fun (_ : Loc.t) tp -> record_of_sexp tp)
-          ~variants:(fun (_ : Loc.t) tp -> handle_variant tp)
-          ~mani:(fun (_ : Loc.t) _tp1 tp2 -> loop tp2)
-          ~nil:nil_of_sexp
+      let body =
+        Gen.switch_tp_def rhs
+          ~alias:   (fun (_ : Loc.t) tp  -> handle_alias   tp)
+          ~sum:     (fun (_ : Loc.t) tp  -> sum_of_sexp    tp)
+          ~record:  (fun (_ : Loc.t) tp  -> record_of_sexp tp)
+          ~variants:(fun (_ : Loc.t) tp  -> handle_variant tp)
+          ~mani:    (fun (_ : Loc.t) _ _ -> assert false)
+          ~nil:     nil_of_sexp
       in
-      match loop rhs with
+      match body with
       | `Fun fun_expr ->
           (* Prevent violation of value restriction and problems with
              recursive types by eta-expanding function definitions *)
@@ -1421,18 +1436,11 @@ module Generate_of_sexp = struct
       Gen.abstract loc arg_patts
         <:expr@loc< fun sexp -> ($pre_external_fun_body$) >>
     in
-    let type_of_of_sexp =
-      mk_poly_type Sig_generate_of_sexp.sig_of_td__loop loc type_name tps
-    in
-    let maybe_annotate expr =
-      match type_of_of_sexp with
-      | None -> expr
-      | Some typ -> <:expr@loc< ( $expr$ : $typ$ ) >>
-    in
-    let internal_fun_body = maybe_annotate internal_fun_body in
-    let external_fun_body = maybe_annotate external_fun_body in
-    let internal_binding = <:binding@loc< $lid:internal_name$ = $internal_fun_body$ >> in
-    let external_binding = <:binding@loc< $lid:external_name$ = $external_fun_body$ >> in
+    let annot = mk_poly_type Sig_generate_of_sexp.sig_of_td__loop loc type_name tps in
+    let internal_binding =
+      <:binding@loc< $lid:internal_name$ : $annot$ = $internal_fun_body$ >> in
+    let external_binding =
+      <:binding@loc< $lid:external_name$ : $annot$ = $external_fun_body$ >> in
     internal_binding, external_binding
 
   let rec tds_of_sexp acc = function

@@ -191,9 +191,6 @@ module True_and_false = struct
   exception False of int with sexp
   let () = assert ("(pa_sexp_test.ml.True_and_false.False 1)" = Sexp.to_string (sexp_of_exn (False 1)))
 
-  type v = [ `True | `False of int ] with sexp
-  let () = assert (Sexp.to_string (sexp_of_v `True) = "True")
-  let () = assert (Sexp.to_string (sexp_of_v (`False 2)) = "(False 2)")
 end
 
 module Gadt_syntax = struct
@@ -216,4 +213,18 @@ module Gadt_syntax = struct
   type v = A : v option -> v with sexp
   let () = assert (Sexp.to_string (<:sexp_of< v >> (A (Some (A None)))) = "(A((A())))")
   let () = assert (A (Some (A None)) = <:of_sexp< v >> (Sexp.of_string "(A((A())))"))
+end
+
+(* module Record_field_disambiguation = struct
+ *
+ *   type a = { fl: float; b : b } and b = { fl: int } with sexp
+ *
+ * end *)
+
+module Private = struct
+  type t = private int with sexp_of
+
+  type ('a, 'b) u = private t with sexp_of
+
+  type ('a, 'b, 'c) v = private ('a, 'b) u with sexp_of
 end

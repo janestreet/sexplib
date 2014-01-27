@@ -120,7 +120,11 @@
    variable capture and allows us to forego closure building.
 *)
 
-type 'a conv = 'a Sexp.Annotated.conv
+type 'a conv =
+  [ `Result of 'a | `Error of exn * Sexp.t ]
+
+type 'a annot_conv = ([ `Result of 'a | `Error of exn * Sexp.Annotated.t ] as 'body)
+  constraint 'body = 'a Sexp.Annotated.conv
 
 val load_sexp : string -> Sexp.t
 (** [load_sexp file] like [{!Sexp.load_sexp} file], but resolves the macros
@@ -130,11 +134,11 @@ val load_sexps : string -> Sexp.t list
 (** [load_sexps file] like [{!Sexp.load_sexps} file], but resolves the macros
     contained in [file]. *)
 
-val load_sexp_conv : string -> (Sexp.t -> 'a) -> 'a conv
+val load_sexp_conv : string -> (Sexp.t -> 'a) -> 'a annot_conv
 (** [load_sexp_conv file f] uses {!load_sexp} and converts the result using
     [f]. *)
 
-val load_sexps_conv : string -> (Sexp.t -> 'a) -> 'a conv list
+val load_sexps_conv : string -> (Sexp.t -> 'a) -> 'a annot_conv list
 (** [load_sexps_conv file f] uses {!load_sexps} and converts the result using
     [f]. *)
 
@@ -145,6 +149,10 @@ val load_sexp_conv_exn : string -> (Sexp.t -> 'a) -> 'a
 val load_sexps_conv_exn : string -> (Sexp.t -> 'a) -> 'a list
 (** [load_sexps_conv_exn file f] like {!load_sexps_conv}, but raises an
     exception in case of conversion error. *)
+
+val expand_local_macros : Sexp.t list -> Sexp.t list conv
+(** [expand_local_macros sexps] takes a list of sexps and performs macro-expansion on
+    them, except that an error will be returned if an :include macro is found. *)
 
 (** A version of [load_sexps] that is functorized with respect to the functions
     that load the sexps from files and the corresponding monad. *)
@@ -165,8 +173,8 @@ module type Sexp_loader = sig
 end
 
 module Loader (S : Sexp_loader) : sig
-  val load_sexp_conv  : string -> (Sexp.t -> 'a) -> 'a conv      S.Monad.t
-  val load_sexps_conv : string -> (Sexp.t -> 'a) -> 'a conv list S.Monad.t
+  val load_sexp_conv  : string -> (Sexp.t -> 'a) -> 'a annot_conv      S.Monad.t
+  val load_sexps_conv : string -> (Sexp.t -> 'a) -> 'a annot_conv list S.Monad.t
 end
 
 val add_error_location : string -> exn -> exn

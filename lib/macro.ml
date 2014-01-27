@@ -6,7 +6,10 @@ exception Of_sexp_error = Pre_sexp.Of_sexp_error
 let macro_error err t =
   Of_sexp_error (Failure (sprintf "Error evaluating macros: %s" err), t)
 
-type 'a conv = 'a Sexp.Annotated.conv
+type 'a conv =
+  [ `Result of 'a | `Error of exn * Sexp.t ]
+type 'a annot_conv = (* 'a Sexp.Annotated.conv = *)
+  [ `Result of 'a | `Error of exn * Sexp.Annotated.t ]
 
 module List = struct
 
@@ -118,7 +121,7 @@ let free_variables ts = free_variables_gen ~raise_if_any:false ts
 (* This function does not need to compute a transformation trail because all of
    the returned errors are of the form [Of_sexp_error (_, t)] where [t] is a
    physical subexpression of the input.  *)
-let expand_local_macros ts =
+let expand_local_macros_exn ts =
   (* tail-recursive *)
   let rec expand_list defs ts acc =
     match ts with
@@ -164,8 +167,6 @@ let expand_local_macros ts =
       in
       let formal_args, body =
         try Bindings.find (atom v) defs
-        (* This should never be triggered, because we check files and let bodies
-           for absence of free variables. *)
         with Not_found -> raise (macro_error "Undefined variable" v)
       in
       let args = List.map ~f:split_arg args in
@@ -198,6 +199,10 @@ let expand_local_macros ts =
       [result]
   in
   expand_list Bindings.empty ts []
+
+let expand_local_macros ts =
+  try `Result (expand_local_macros_exn ts) with
+  | Of_sexp_error (e, t) -> `Error (e, t)
 
 module type Sexp_loader = sig
   module Monad : sig
@@ -274,21 +279,23 @@ module Loader (S : Sexp_loader) = struct
           (file, List.map ~f:Sexp.Annotated.get_sexp annot_sexps))
           annot_file_contents
     in
-    let rec inline_includes = function
+    let rec inline_includes current_file = function
       | Sexp.Atom _ as t -> [t]
       (* We expand an :include in list context, because that corresponds to
          the naive string substitution semantics. *)
       | Sexp.List [Sexp.Atom ":include"; Sexp.Atom include_file] ->
-        load_and_inline (make_absolute_path ~with_respect_to:file include_file)
+        load_and_inline (make_absolute_path ~with_respect_to:current_file include_file)
       | Sexp.List ts as t ->
-        let ts = List.concat_map ts ~f:inline_includes in
+        let ts = List.concat_map ts ~f:(inline_includes current_file) in
         let t' = Sexp.List ts in
         add_result ~arg:t ~result:t';
         [t']
     and load_and_inline file =
       (* The lookup always succeeds, because [file_contents] is a result of
          [load_all_includes]. *)
-      let ts = List.concat_map (List.assoc file file_contents) ~f:inline_includes in
+      let ts =
+        List.concat_map (List.assoc file file_contents) ~f:(inline_includes file)
+      in
       (* This checks that, after expanding the includes of file1, file1 doesn't have any
          free variables. So if file1 is included in file2, it won't use any of the
          variable of file2 in scope where file1 is included.
@@ -306,7 +313,7 @@ module Loader (S : Sexp_loader) = struct
     in
     match mode with
     | `Fast _ ->
-      let ts = expand_local_macros (load_and_inline file) in
+      let ts = expand_local_macros_exn (load_and_inline file) in
       map_results ts ~f:(fun t -> `Result (f t))
     | `Find_error annot_file_contents ->
       let locate_error f =
@@ -322,7 +329,7 @@ module Loader (S : Sexp_loader) = struct
           | None -> raise e
       in
       let inline_and_expand () =
-        expand_local_macros (load_and_inline file)
+        expand_local_macros_exn (load_and_inline file)
       in
       match locate_error inline_and_expand with
       | `Error e -> [`Error e]

@@ -16,6 +16,11 @@ let () =
     | Some sexp ->
       Some (Sexp.to_string_hum ~indent:2 sexp))
 
+let command_exn str =
+  match Sys.command str with
+  | 0 -> ()
+  | code -> failwith (sprintf "command %S exited with code %d" str code)
+
 module Make (Load : Load) = struct
   module Macro = struct end (* shadowing Macro to avoid mistakenly
                                calling it instead of Load *)
@@ -26,16 +31,19 @@ module Make (Load : Load) = struct
   let with_files files ~f =
     let time = Unix.time () in
     incr test_id;
-    let dir = sprintf "/tmp/macros-test-%f-%d" time !test_id in
-    Unix.mkdir dir 0o777;
+    let dir =
+      sprintf "%s/macros-test/macros-test-%f-%d"
+        (Filename.get_temp_dir_name ()) time !test_id
+    in
     List.iter (fun (file, contents) ->
+      let file_dir = Filename.concat dir (Filename.dirname file) in
+      command_exn ("mkdir -p " ^ file_dir);
       let out_channel = open_out (Filename.concat dir file) in
       output_string out_channel (contents ^ "\n");
       close_out out_channel)
       files;
     let tear_down () =
-      List.iter (fun (file, _) -> Unix.unlink (Filename.concat dir file)) files;
-      Unix.rmdir dir
+      command_exn ("rm -rf -- " ^ dir);
     in
     try let v = f dir in tear_down (); v
     with e -> tear_down (); raise e
@@ -132,6 +140,19 @@ module Make (Load : Load) = struct
       "((field1 value1)
        (field2 (0001 0002 0003 0004 0005))
        (field3 ayzyz))"
+
+ TEST_UNIT "include chain with subdirectories" =
+    check
+      [ "input.sexp"
+      , "(:include include/a.sexp)"
+
+      ; "include/a.sexp"
+      , "(:include b.sexp)"
+
+      ; "include/b.sexp"
+      , "(this is include/b)" ]
+
+      "(this is include/b)"
 
   TEST_UNIT "hello world" =
     check
@@ -445,3 +466,12 @@ end
 
 module M = Make (Macro)
 
+TEST_UNIT =
+  match Macro.expand_local_macros [Sexp.of_string "(:use x)"] with
+  | `Result _ -> assert false
+  | `Error (e, _) ->
+    let expected =
+      "(Failure\"Error evaluating macros: Undefined variable\")"
+    in
+    if Sexp.to_string (sexp_of_exn e) <> expected then raise e
+;;
