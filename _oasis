@@ -94,10 +94,3 @@ Test conv
   Run$:               flag(tests)
   Command:            $conv_test
   WorkingDirectory:   lib_test
-
-Document "sexplib"
-  Title:                API reference for sexplib
-  Type:                 ocamlbuild (0.3)
-  BuildTools+:          ocamldoc
-  XOCamlbuildPath:      lib
-  XOCamlbuildLibraries: sexplib
