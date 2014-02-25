@@ -11,7 +11,7 @@ module Make (Pos : sig type t val sexp_of_t : t -> Type.t end) : sig
       | Comment of comment
     and comment =
       | Plain_comment of Pos.t * string (* line or block comment *)
-      | Sexp_comment of Pos.t * comment list * t (* #! position *)
+      | Sexp_comment of Pos.t * comment list * t (* #; position *)
 
     val sexp_of_t : t -> Type.t
     val sexp_of_comment : comment -> Type.t

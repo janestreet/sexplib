@@ -620,7 +620,7 @@ module type S = sig
       | Comment of comment
     and comment =
       | Plain_comment of pos * string (* line or block comment *)
-      | Sexp_comment of pos * comment list * t (* position of #! *)
+      | Sexp_comment of pos * comment list * t (* position of #; *)
 
     val sexp_of_t            : t -> Type.t
     val sexp_of_comment      : comment -> Type.t
