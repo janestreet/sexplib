@@ -394,7 +394,7 @@ module Make (Load : Load) = struct
   exception Conv_error
 
   let rec conv_error = function
-    | Sexp.Atom "error" as t ->
+    | Sexp.List [ Sexp.Atom "trigger"; Sexp.Atom "error" ] as t ->
       raise (Pre_sexp.Of_sexp_error (Conv_error, t))
     | Sexp.Atom _ -> ()
     | Sexp.List ts -> List.iter conv_error ts
@@ -405,12 +405,12 @@ module Make (Load : Load) = struct
       , "(:include include.sexp)"
 
       ; "include.sexp"
-      , "(foo bar error)" ]
-      ~expect:["(Sexplib.Conv.Of_sexp_error
-          (Sexplib.Sexp.Annotated.Conv_exn
-            DIR/include.sexp:1:9
-            (\"Test_macros.Make(Load).Conv_error\"))
-          error)"]
+      , "(:let err () error)
+         (foo bar (trigger (:use err)))" ]
+      ~expect:["((Sexplib.Sexp.Annotated.Conv_exn
+                DIR/include.sexp:2:18
+                (\"Test_macros.Make(Load).Conv_error\"))
+                (trigger (:use err)) (expanded (trigger error)))"]
 
   TEST_UNIT "multiple conversion errors" =
     check_error_count ~f:conv_error ~expected_count:2
@@ -418,7 +418,8 @@ module Make (Load : Load) = struct
       , "(:include include.sexp) (:include include.sexp)"
 
       ; "include.sexp"
-      , "(foo bar error)" ]
+      , "(:let err () error)
+         (foo bar (trigger (:use err)))" ]
 
   TEST_UNIT =
     check_error

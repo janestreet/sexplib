@@ -2,6 +2,19 @@ open Format
 
 exception Include_loop_detected of string
 exception Of_sexp_error = Pre_sexp.Of_sexp_error
+exception Macro_conv_error of exn * Sexp.t * [`expanded of Sexp.t]
+
+let () =
+  let open Sexp in
+  Conv.Exn_converter.add_auto ~finalise:false
+    (Macro_conv_error (Failure "", List [], `expanded (List [])))
+    (function
+      | Macro_conv_error (exn, unexpanded, `expanded expanded) ->
+        List [Atom "Sexplib.Macro.Macro_conv_error";
+              List [Conv.sexp_of_exn exn;
+                    unexpanded;
+                    List [Atom "expanded"; expanded]]]
+      | _ -> assert false)
 
 let macro_error err t =
   Of_sexp_error (Failure (sprintf "Error evaluating macros: %s" err), t)
@@ -66,13 +79,11 @@ end
    catch errors early. *)
 module Bindings = Map.Make (String)
 
-(* A physical association list mapping sexps after :include are inlined to sexps that
-   they originate from.  This map allows us to recover the original sexp that gave rise to
-   an error and to give a precise error location. *)
+(* A physical association list mapping sexps after :include are inlined to sexps
+   that they originate from.  This map allows us to recover the original sexp
+   that gave rise to an error and to give a precise error location. *)
 type trail = (Sexp.t * Sexp.t) list
 
-(* The number of recursive calls is bounded by the length of the chain of includes
-   that brought [result] in the file. *)
 let rec find_arg result trail =
   try find_arg (List.assq result trail) trail
   with Not_found -> result
@@ -118,10 +129,12 @@ let free_variables_gen ~raise_if_any ts =
 let check_no_free_variables ts = ignore (free_variables_gen ~raise_if_any:true ts)
 let free_variables ts = free_variables_gen ~raise_if_any:false ts
 
-(* This function does not need to compute a transformation trail because all of
-   the returned errors are of the form [Of_sexp_error (_, t)] where [t] is a
-   physical subexpression of the input.  *)
-let expand_local_macros_exn ts =
+let expand_local_macros_exn ~trail ts =
+  let add_result =
+    match trail with
+    | None -> fun ~arg:_ ~result:_ -> ()
+    | Some ref -> fun ~arg ~result -> ref := (result, arg) :: !ref
+  in
   (* tail-recursive *)
   let rec expand_list defs ts acc =
     match ts with
@@ -192,17 +205,19 @@ let expand_local_macros_exn ts =
           raise (macro_error error t)
       in
       let result = Sexp.Atom (String.concat "" ts) in
+      add_result ~arg:t ~result;
       [result]
     | Sexp.List ts ->
       let ts = expand_list defs ts [] in
       let result = Sexp.List ts in
+      add_result ~arg:t ~result;
       [result]
   in
   expand_list Bindings.empty ts []
 
 let expand_local_macros ts =
-  try `Result (expand_local_macros_exn ts) with
-  | Of_sexp_error (e, t) -> `Error (e, t)
+  try `Result (expand_local_macros_exn ts ~trail:None)
+  with Of_sexp_error (e, t) -> `Error (e, t)
 
 module type Sexp_loader = sig
   module Monad : sig
@@ -264,6 +279,10 @@ module Loader (S : Sexp_loader) = struct
         | None -> None
         | Some annot_sexp -> Some (file, annot_sexp)))
 
+ (* This function has to compute a transformation trail even though all of the returned
+    errors are of the form [Of_sexp_error (_, t)] where [t] is a physical subexpression of
+    the input, in the event where an error happens not during macro expansion but during
+    conversion to ocaml values. *)
   let expand_and_convert ~multiple (mode : mode) file f =
     let trail = ref ([] : trail) in
     let add_result ~arg ~result =
@@ -296,9 +315,9 @@ module Loader (S : Sexp_loader) = struct
       let ts =
         List.concat_map (List.assoc file file_contents) ~f:(inline_includes file)
       in
-      (* This checks that, after expanding the includes of file1, file1 doesn't have any
-         free variables. So if file1 is included in file2, it won't use any of the
-         variable of file2 in scope where file1 is included.
+      (* This checks that, after expanding the includes of file1, file1 doesn't
+         have any free variables. So if file1 is included in file2, it won't use
+         any of the variable of file2 in scope where file1 is included.
          However, the inclusion of file1 may shadow variables from file2. *)
       check_no_free_variables ts;
       ts
@@ -313,26 +332,32 @@ module Loader (S : Sexp_loader) = struct
     in
     match mode with
     | `Fast _ ->
-      let ts = expand_local_macros_exn (load_and_inline file) in
+      let ts = expand_local_macros_exn ~trail:None (load_and_inline file) in
       map_results ts ~f:(fun t -> `Result (f t))
     | `Find_error annot_file_contents ->
       let locate_error f =
         try `Result (f ())
         with Of_sexp_error (exc, bad_sexp) as e ->
           (* Find the original sexp that caused the error. *)
-          let bad_sexp = find_arg bad_sexp !trail in
-          match find_annotated bad_sexp annot_file_contents with
-          | Some (file, bad_annot_sexp) ->
-            `Error (Sexp.Annotated.get_conv_exn ~file ~exc bad_annot_sexp,
-                    bad_annot_sexp)
+          let unexpanded_bad_sexp = find_arg bad_sexp !trail in
+          match find_annotated unexpanded_bad_sexp annot_file_contents with
+          | Some (file, unexpanded_bad_annot_sexp) ->
+            let exc =
+              match Sexp.Annotated.get_conv_exn ~file ~exc unexpanded_bad_annot_sexp with
+              | Of_sexp_error (inner_exc, unexpanded_bad_sexp) as exc ->
+                if bad_sexp = unexpanded_bad_sexp then exc
+                else Macro_conv_error (inner_exc, unexpanded_bad_sexp, `expanded bad_sexp)
+              | exc -> exc
+            in
+            `Error (exc, unexpanded_bad_annot_sexp)
           (* This case should never happen. *)
           | None -> raise e
       in
       let inline_and_expand () =
-        expand_local_macros_exn (load_and_inline file)
+        expand_local_macros_exn ~trail:(Some trail) (load_and_inline file)
       in
       match locate_error inline_and_expand with
-      | `Error e -> [`Error e]
+      | `Error _ as e -> [e]
       | `Result ts ->
         map_results ts ~f:(fun t -> locate_error (fun () -> f t))
 
@@ -359,7 +384,8 @@ end
 
 exception Error_in_file of string * exn
 let () =
-  Conv.Exn_converter.add_auto (Error_in_file ("foo", Exit))
+  Conv.Exn_converter.add_auto ~finalise:false
+    (Error_in_file ("foo", Exit))
     (function
       | Error_in_file (file, exn) ->
         Sexp.List [Sexp.Atom ("Error in file " ^ file); Conv.sexp_of_exn exn]
