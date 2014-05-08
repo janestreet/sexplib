@@ -61,6 +61,14 @@ module No_unused_value_warnings : sig end = struct
       type t with sexp
     end in
     ()
+
+  module Include = struct
+    include (struct
+      type t = int with sexp
+    end : sig
+      type t with sexp
+    end with type t := int)
+  end
 end
 
 module Default = struct
