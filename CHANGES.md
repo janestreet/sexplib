@@ -1,3 +1,7 @@
+## 111.17.00
+
+- Make the camlp4 dependency optional
+
 ## 111.13.00
 
 - In `Sexplib.Std`, renamed `Macro` as `Sexp_macro`.

@@ -2,7 +2,7 @@ OASISFormat:      0.4
 OCamlVersion:     >= 4.00.0
 FindlibVersion:   >= 1.3.2
 Name:             sexplib
-Version:          111.13.00
+Version:          111.17.00
 Synopsis:         sexplib - automated S-expression conversion
 Authors:          Jane Street Capital LLC <opensource@janestreet.com>
 Copyrights:       (C) 2005-2013 Jane Street Capital LLC <opensource@janestreet.com>
@@ -14,6 +14,10 @@ Plugins:          StdFiles (0.3), DevFiles (0.3), META (0.3)
 XStdFilesAUTHORS: false
 XStdFilesREADME:  false
 BuildTools:       ocamlbuild, camlp4o
+
+Flag syntax
+  Description: Build the syntax extension
+  Default: true
 
 Library sexplib
   Path:               lib
@@ -53,6 +57,8 @@ Library sexplib_unix
   BuildDepends:       sexplib,unix
 
 Library pa_sexp_conv
+  Build$:             flag(syntax)
+  Install$:           flag(syntax)
   Path:               syntax
   FindlibName:        syntax
   FindlibParent:      sexplib
@@ -75,23 +81,23 @@ Library sexplib_top
 Executable sexp_test
   Path:               lib_test
   MainIs:             sexp_test.ml
-  Build$:             flag(tests)
+  Build$:             flag(syntax) && flag(tests)
   Install:            false
   BuildDepends:       sexplib
 
 Executable conv_test
   Path:               lib_test
   MainIs:             conv_test.ml
-  Build$:             flag(tests)
+  Build$:             flag(syntax) && flag(tests)
   Install:            false
   BuildDepends:       sexplib, sexplib_num, sexplib.syntax
 
 Test sexp
-  Run$:               flag(tests)
+  Run$:               flag(syntax) && flag(tests)
   Command:            $sexp_test < test.sexp
   WorkingDirectory:   lib_test
 
 Test conv
-  Run$:               flag(tests)
+  Run$:               flag(syntax) && flag(tests)
   Command:            $conv_test
   WorkingDirectory:   lib_test
