@@ -30,7 +30,7 @@ system, too.  It should be obtainable at the same site as `sexplib`.
 The API (`.mli`-files) in the `sexplib` library directory (`lib`)
 is fully documented, and HTML-documentation can be built from it on
 installation.  The documentation for the latest release can also be found
-[online](http://mmottl.bitbucket.org/projects/sexplib/api/).
+[online](https://ocaml.janestreet.com/ocaml-core/latest/doc/sexplib/).
 
 Module `Sexp` contains all I/O-functions for S-expressions, module
 `Conv` helper functions for converting OCaml-values of standard types
@@ -84,7 +84,7 @@ ocamlc -pp "camlp4o -I {path to type_conv} \
   -I {path to sexplib} foo.ml
 ```
 
-If you are using [OCamlMakefile](http://bitbucket.org/mmottl/ocaml-makefile),
+If you are using [OCamlMakefile](http://mmottl.github.io/ocaml-makefile/),
 just put the following line at the top of the file, assuming you have installed
 both `type_conv` and `sexplib` with ocamlfind.  The comment must start at
 the beginning of the line, and you must not break lines (here broken for
@@ -497,4 +497,3 @@ contact the maintainers:
 
 Up-to-date information should be available at:
 * <https://github.com/janestreet/sexplib>
-* <https://bitbucket.org/janestreet/sexplib>
