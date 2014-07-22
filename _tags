@@ -1,6 +1,7 @@
 # OASIS_START
 # OASIS_STOP
 <lib/pre_sexp.ml>: pp(cpp -undef -traditional -Isyntax -w)
+<lib/conv.ml>: syntax_camlp4o, package(camlp4.macro), use_macro
 <lib_test/*.ml{,i}>: syntax_camlp4o
 <syntax/pa_sexp_conv.ml>: syntax_camlp4o
 "top/sexplib_install_printers.ml": I(+compiler-libs)

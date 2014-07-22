@@ -7,7 +7,15 @@ let dispatch = function
     flag ["ocamldep"; "ocaml"; "use_pa_sexp_conv"]
       (S [A "-ppopt"; P "syntax/pa_sexp_conv.cma"]);
     flag ["compile"; "ocaml"; "use_pa_sexp_conv"]
-      (S [A "-ppopt"; P "syntax/pa_sexp_conv.cma"])
+      (S [A "-ppopt"; P "syntax/pa_sexp_conv.cma"]);
+
+    let env = BaseEnvLight.load () in
+    let ver = BaseEnvLight.var_get "ocaml_version" env in
+    let ver = Scanf.sscanf ver "%d.%d" (fun major minor -> (major, minor)) in
+    if ver >= (4, 02) then begin
+      flag ["ocaml"; "compile"; "use_macro"] & S[A"-ppopt"; A "-DOCAML_4_02"];
+      flag ["ocaml"; "ocamldep"; "use_macro"] & S[A"-ppopt"; A "-DOCAML_4_02"];
+    end
   | _ ->
     ()
 

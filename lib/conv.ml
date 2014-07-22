@@ -173,11 +173,65 @@ module Exn_converter = struct
 
   (* Fast and automatic exception registration *)
 
+  let max_exn_tags = ref 20
+
+  let set_max_exn_tags n =
+    if n < 1 then
+      failwith "Sexplib.Conv.Exn_converter.set_max_exn_tags: n < 1"
+    else max_exn_tags := n
+
+  let get_max_exn_tags () = !max_exn_tags
+
   module Int = struct
     type t = int
 
     let compare t1 t2 = compare (t1 : int) t2
   end
+
+IFDEF OCAML_4_02 THEN
+
+  (* This is not exposed in [Obj] *)
+  let extension_slot x =
+    let x = Obj.repr x in
+    if Obj.tag x = Obj.object_tag then x else Obj.field x 0
+  ;;
+
+  module Exn_ids = Map.Make (Int)
+
+  let exn_id_map : (exn -> Sexp.t) Exn_ids.t ref = ref Exn_ids.empty
+
+  let rec clean_up_handler slot =
+    let id = Obj.extension_id slot in
+    let old_exn_id_map = !exn_id_map in
+    let new_exn_id_map = Exn_ids.remove id old_exn_id_map in
+    (* This trick avoids mutexes and should be fairly efficient *)
+    if !exn_id_map != old_exn_id_map then
+      clean_up_handler slot
+    else
+      exn_id_map := new_exn_id_map
+
+  let add_auto ?(finalise = true) exn sexp_of_exn =
+    let id = Obj.extension_id exn in
+    let rec loop () =
+      let old_exn_id_map = !exn_id_map in
+      let new_exn_id_map = Exn_ids.add id sexp_of_exn old_exn_id_map in
+      (* This trick avoids mutexes and should be fairly efficient *)
+      if !exn_id_map != old_exn_id_map then
+        loop ()
+      else begin
+        exn_id_map := new_exn_id_map;
+        if finalise then Gc.finalise clean_up_handler (extension_slot exn)
+      end
+    in
+    loop ()
+
+  let find_auto exn =
+    let id = Obj.extension_id exn in
+    match try Some (Exn_ids.find id !exn_id_map) with Not_found -> None with
+    | None -> None
+    | Some sexp_of_exn -> Some (sexp_of_exn exn)
+
+ELSE
 
   module Addrs = Map.Make (Int)
 
@@ -212,15 +266,6 @@ module Exn_converter = struct
   let fast_id_cnt = ref Int64.max_int
 
   exception Found_sexp of Sexp.t
-
-  let max_exn_tags = ref 20
-
-  let set_max_exn_tags n =
-    if n < 1 then
-      failwith "Sexplib.Conv.Exn_converter.set_max_exn_tags: n < 1"
-    else max_exn_tags := n
-
-  let get_max_exn_tags () = !max_exn_tags
 
   let add_auto ?(finalise = true) exn sexp_of_exn =
     let exn_tag = get_exn_tag exn in
@@ -267,6 +312,8 @@ module Exn_converter = struct
           Ids.iter act exn_handler_map;
           None
         with Found_sexp sexp -> Some sexp
+
+ENDIF
 end
 
 let sexp_of_exn_opt exn =
