@@ -1,3 +1,7 @@
+## 111.25.00
+
+- Fix compatibility with OCaml 4.02
+
 ## 111.17.00
 
 - Make the camlp4 dependency optional
