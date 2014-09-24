@@ -239,7 +239,10 @@ ELSE
 
   let exn_addr_map : (int * weak_repr) Addrs.t ref = ref Addrs.empty
 
-  let get_exn_tag (exn : exn) = Obj.field (Obj.repr exn) 0
+  let get_exn_tag (exn : exn) =
+
+    let tag = Obj.field (Obj.repr exn) 0 in
+    if Obj.tag tag = Obj.string_tag then Obj.repr exn else tag
   let get_exn_tag_str_addr exn_tag = (Obj.magic (Obj.field exn_tag 0) : int)
   let get_exn_str_addr exn = get_exn_tag_str_addr (get_exn_tag exn)
 

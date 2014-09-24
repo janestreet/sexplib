@@ -1,3 +1,12 @@
+## 112.01.00
+
+- Replaced occurrences of `Obj.magic 0` with `Obj.magic None`.
+
+  With the former the compiler might think the destination type is
+  always an integer and instruct the GC to ignore references to such
+  values.  The latter doesn't have this problem as options are not
+  always integers.
+
 ## 111.25.00
 
 - Fix compatibility with OCaml 4.02

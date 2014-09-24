@@ -7,7 +7,7 @@ let register1 make_exc exc_name
       sexp_of_arg1 =
   let exc =
     make_exc
-      (Obj.magic 0)
+      (Obj.magic None)
   in
   Conv.Exn_converter.add_auto exc (fun exc ->
     let repr = Obj.repr exc in
@@ -21,7 +21,7 @@ let register2 make_exc exc_name
       sexp_of_arg1 sexp_of_arg2 =
   let exc =
     make_exc
-      (Obj.magic 0) (Obj.magic 0)
+      (Obj.magic None) (Obj.magic None)
   in
   Conv.Exn_converter.add_auto exc (fun exc ->
     let repr = Obj.repr exc in
@@ -36,7 +36,7 @@ let register3 make_exc exc_name
       sexp_of_arg1 sexp_of_arg2 sexp_of_arg3 =
   let exc =
     make_exc
-      (Obj.magic 0) (Obj.magic 0) (Obj.magic 0)
+      (Obj.magic None) (Obj.magic None) (Obj.magic None)
   in
   Conv.Exn_converter.add_auto exc (fun exc ->
     let repr = Obj.repr exc in
@@ -52,7 +52,7 @@ let register4 make_exc exc_name
       sexp_of_arg1 sexp_of_arg2 sexp_of_arg3 sexp_of_arg4 =
   let exc =
     make_exc
-      (Obj.magic 0) (Obj.magic 0) (Obj.magic 0) (Obj.magic 0)
+      (Obj.magic None) (Obj.magic None) (Obj.magic None) (Obj.magic None)
   in
   Conv.Exn_converter.add_auto exc (fun exc ->
     let repr = Obj.repr exc in
@@ -69,7 +69,7 @@ let register5 make_exc exc_name
       sexp_of_arg1 sexp_of_arg2 sexp_of_arg3 sexp_of_arg4 sexp_of_arg5 =
   let exc =
     make_exc
-      (Obj.magic 0) (Obj.magic 0) (Obj.magic 0) (Obj.magic 0) (Obj.magic 0)
+      (Obj.magic None) (Obj.magic None) (Obj.magic None) (Obj.magic None) (Obj.magic None)
   in
   Conv.Exn_converter.add_auto exc (fun exc ->
     let repr = Obj.repr exc in
@@ -88,8 +88,8 @@ let register6 make_exc exc_name
       sexp_of_arg6 =
   let exc =
     make_exc
-      (Obj.magic 0) (Obj.magic 0) (Obj.magic 0) (Obj.magic 0) (Obj.magic 0)
-      (Obj.magic 0)
+      (Obj.magic None) (Obj.magic None) (Obj.magic None) (Obj.magic None) (Obj.magic None)
+      (Obj.magic None)
   in
   Conv.Exn_converter.add_auto exc (fun exc ->
     let repr = Obj.repr exc in
@@ -109,8 +109,8 @@ let register7 make_exc exc_name
       sexp_of_arg6 sexp_of_arg7 =
   let exc =
     make_exc
-      (Obj.magic 0) (Obj.magic 0) (Obj.magic 0) (Obj.magic 0) (Obj.magic 0)
-      (Obj.magic 0) (Obj.magic 0)
+      (Obj.magic None) (Obj.magic None) (Obj.magic None) (Obj.magic None) (Obj.magic None)
+      (Obj.magic None) (Obj.magic None)
   in
   Conv.Exn_converter.add_auto exc (fun exc ->
     let repr = Obj.repr exc in
@@ -131,8 +131,8 @@ let register8 make_exc exc_name
       sexp_of_arg6 sexp_of_arg7 sexp_of_arg8 =
   let exc =
     make_exc
-      (Obj.magic 0) (Obj.magic 0) (Obj.magic 0) (Obj.magic 0) (Obj.magic 0)
-      (Obj.magic 0) (Obj.magic 0) (Obj.magic 0)
+      (Obj.magic None) (Obj.magic None) (Obj.magic None) (Obj.magic None) (Obj.magic None)
+      (Obj.magic None) (Obj.magic None) (Obj.magic None)
   in
   Conv.Exn_converter.add_auto exc (fun exc ->
     let repr = Obj.repr exc in
@@ -154,8 +154,8 @@ let register9 make_exc exc_name
       sexp_of_arg6 sexp_of_arg7 sexp_of_arg8 sexp_of_arg9 =
   let exc =
     make_exc
-      (Obj.magic 0) (Obj.magic 0) (Obj.magic 0) (Obj.magic 0) (Obj.magic 0)
-      (Obj.magic 0) (Obj.magic 0) (Obj.magic 0) (Obj.magic 0)
+      (Obj.magic None) (Obj.magic None) (Obj.magic None) (Obj.magic None) (Obj.magic None)
+      (Obj.magic None) (Obj.magic None) (Obj.magic None) (Obj.magic None)
   in
   Conv.Exn_converter.add_auto exc (fun exc ->
     let repr = Obj.repr exc in
@@ -178,8 +178,8 @@ let register10 make_exc exc_name
       sexp_of_arg6 sexp_of_arg7 sexp_of_arg8 sexp_of_arg9 sexp_of_arg10 =
   let exc =
     make_exc
-      (Obj.magic 0) (Obj.magic 0) (Obj.magic 0) (Obj.magic 0) (Obj.magic 0)
-      (Obj.magic 0) (Obj.magic 0) (Obj.magic 0) (Obj.magic 0) (Obj.magic 0)
+      (Obj.magic None) (Obj.magic None) (Obj.magic None) (Obj.magic None) (Obj.magic None)
+      (Obj.magic None) (Obj.magic None) (Obj.magic None) (Obj.magic None) (Obj.magic None)
   in
   Conv.Exn_converter.add_auto exc (fun exc ->
     let repr = Obj.repr exc in
