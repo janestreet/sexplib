@@ -223,11 +223,13 @@ module Gadt_syntax = struct
   let () = assert (A (Some (A None)) = <:of_sexp< v >> (Sexp.of_string "(A((A())))"))
 end
 
-(* module Record_field_disambiguation = struct
- *
- *   type a = { fl: float; b : b } and b = { fl: int } with sexp
- *
- * end *)
+module Record_field_disambiguation = struct
+
+  type a = { fl: float; b : b }
+  and b = { fl: int }
+  with sexp
+
+end
 
 module Private = struct
   type t = private int with sexp_of

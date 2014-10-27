@@ -327,24 +327,13 @@ val sexp_of_exn_opt : exn -> Sexp.t option
 module Exn_converter : sig
   type t  (** Type of handles for exception S-expression converters *)
 
-  val set_max_exn_tags : int -> unit
-  (** [set_max_exn_tags n] sets the maximum number of converters for exceptions
-      with the same template to [n].  If already existing handlers exceed
-      this number, they will remain at their current number until this number
-      is reduced due to garbage collection.  New handlers will not be added
-      until [n] will not be exceeded. *)
-
-  val get_max_exn_tags : unit -> int
-  (** [set_max_exn_tags ()] return the maximum number of converters for
-      exceptions with the same template. *)
+  val set_max_exn_tags : int -> unit [@@ocaml.deprecated]
+  val get_max_exn_tags : unit -> int [@@ocaml.deprecated]
 
   val add_auto : ?finalise : bool -> exn -> (exn -> Sexp.t) -> unit
   (** [add_auto ?finalise templ sexp_of_exn] registers exception S-expression
       converter [sexp_of_exn] for exceptions having same constructor as
-      template [templ], unless the number of stored handlers for the given
-      template exceeds [get_max_exn_tags ()], in which case the handler will
-      never be called.  When [sexp_of_exn] is called, the passed exception
-      is guaranteed to match the template.
+      template [templ].
 
       NOTE: if the exception belongs to a transient module, e.g. local modules
       (including functor instantiations), first-class modules, etc., a manually

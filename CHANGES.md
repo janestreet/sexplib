@@ -1,3 +1,10 @@
+## 112.06.00
+
+- Improved the implementation of `Exn.sexp_of_t`, using the unique id in
+  exceptions in OCaml 4.02.
+
+    We use the identifier to map exception constructors to converters.
+
 ## 112.01.00
 
 - Replaced occurrences of `Obj.magic 0` with `Obj.magic None`.

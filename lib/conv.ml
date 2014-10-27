@@ -124,7 +124,6 @@ let string_of__of__sexp_of to_sexp x = Sexp.to_string (to_sexp x)
 
 (* Exception converter registration and lookup *)
 
-
 module Exn_converter = struct
   type t = int64
 
@@ -170,17 +169,7 @@ module Exn_converter = struct
       None
     with Found_sexp_opt sexp_opt -> sexp_opt
 
-
   (* Fast and automatic exception registration *)
-
-  let max_exn_tags = ref 20
-
-  let set_max_exn_tags n =
-    if n < 1 then
-      failwith "Sexplib.Conv.Exn_converter.set_max_exn_tags: n < 1"
-    else max_exn_tags := n
-
-  let get_max_exn_tags () = !max_exn_tags
 
   module Int = struct
     type t = int
@@ -188,19 +177,13 @@ module Exn_converter = struct
     let compare t1 t2 = compare (t1 : int) t2
   end
 
-IFDEF OCAML_4_02 THEN
-
-  (* This is not exposed in [Obj] *)
-  let extension_slot x =
-    let x = Obj.repr x in
-    if Obj.tag x = Obj.object_tag then x else Obj.field x 0
-  ;;
-
   module Exn_ids = Map.Make (Int)
 
   let exn_id_map : (exn -> Sexp.t) Exn_ids.t ref = ref Exn_ids.empty
 
-  let rec clean_up_handler slot =
+  (* [Obj.extension_id] works on both the exception itself, and the extension slot of the
+     exception. *)
+  let rec clean_up_handler (slot : Obj.t) =
     let id = Obj.extension_id slot in
     let old_exn_id_map = !exn_id_map in
     let new_exn_id_map = Exn_ids.remove id old_exn_id_map in
@@ -220,103 +203,26 @@ IFDEF OCAML_4_02 THEN
         loop ()
       else begin
         exn_id_map := new_exn_id_map;
-        if finalise then Gc.finalise clean_up_handler (extension_slot exn)
+        if finalise then Gc.finalise clean_up_handler (Obj.extension_slot exn)
       end
     in
     loop ()
 
   let find_auto exn =
     let id = Obj.extension_id exn in
-    match try Some (Exn_ids.find id !exn_id_map) with Not_found -> None with
-    | None -> None
-    | Some sexp_of_exn -> Some (sexp_of_exn exn)
+    match Exn_ids.find id !exn_id_map with
+    | exception Not_found -> None
+    | sexp_of_exn -> Some (sexp_of_exn exn)
 
-ELSE
 
-  module Addrs = Map.Make (Int)
+  let max_exn_tags = ref 20
 
-  type weak_repr = (Obj.t Weak.t * (exn -> Sexp.t)) Ids.t
+  let set_max_exn_tags n =
+    if n < 1 then
+      failwith "Sexplib.Conv.Exn_converter.set_max_exn_tags: n < 1"
+    else max_exn_tags := n
 
-  let exn_addr_map : (int * weak_repr) Addrs.t ref = ref Addrs.empty
-
-  let get_exn_tag (exn : exn) =
-
-    let tag = Obj.field (Obj.repr exn) 0 in
-    if Obj.tag tag = Obj.string_tag then Obj.repr exn else tag
-  let get_exn_tag_str_addr exn_tag = (Obj.magic (Obj.field exn_tag 0) : int)
-  let get_exn_str_addr exn = get_exn_tag_str_addr (get_exn_tag exn)
-
-  let rec clean_up_handler id exn_tag =
-    let old_exn_addr_map = !exn_addr_map in
-    let addr = get_exn_tag_str_addr exn_tag in
-    match
-      try Some (Addrs.find addr old_exn_addr_map)
-      with Not_found -> None
-    with
-    | Some (count, exn_handler_map) ->
-        let new_exn_handler_map = Ids.remove id exn_handler_map in
-        let new_exn_addr_map =
-          if Ids.is_empty new_exn_handler_map then
-            Addrs.remove addr old_exn_addr_map
-          else
-            Addrs.add addr (count - 1, new_exn_handler_map) old_exn_addr_map
-        in
-        (* This trick avoids mutexes and should be fairly efficient *)
-        if !exn_addr_map != old_exn_addr_map then clean_up_handler id exn_tag
-        else exn_addr_map := new_exn_addr_map
-    | None -> ()
-
-  let fast_id_cnt = ref Int64.max_int
-
-  exception Found_sexp of Sexp.t
-
-  let add_auto ?(finalise = true) exn sexp_of_exn =
-    let exn_tag = get_exn_tag exn in
-    let addr = get_exn_tag_str_addr exn_tag in
-    let weak_tbl = Weak.create 1 in
-    Weak.set weak_tbl 0 (Some exn_tag);
-    let new_handler = weak_tbl, sexp_of_exn in
-    let rec loop () =
-      let id = !fast_id_cnt in
-      let old_exn_addr_map = !exn_addr_map in
-      let new_id = Int64.sub id Int64.one in
-      let count, handler_map =
-        try Addrs.find addr old_exn_addr_map
-        with Not_found -> 0, Ids.empty
-      in
-      if count < !max_exn_tags then
-        let new_handler_map = Ids.add id new_handler handler_map in
-        let new_exn_handlers =
-          Addrs.add addr (count + 1, new_handler_map) old_exn_addr_map
-        in
-        (* This trick avoids mutexes and should be fairly efficient *)
-        if !fast_id_cnt != id || !exn_addr_map != old_exn_addr_map then loop ()
-        else begin
-          exn_addr_map := new_exn_handlers;
-          fast_id_cnt := new_id;
-          if finalise then Gc.finalise (clean_up_handler id) exn_tag
-        end
-    in
-    loop ()
-
-  let find_auto exn =
-    let addr = get_exn_str_addr exn in
-    match try Some (Addrs.find addr !exn_addr_map) with Not_found -> None with
-    | None -> None
-    | Some (_, exn_handler_map) ->
-        let exn_tag = get_exn_tag exn in
-        try
-          let act _id (weak_tbl, sexp_of_exn) =
-            match Weak.get weak_tbl 0 with
-            | Some map_exn_tag when map_exn_tag == exn_tag ->
-                raise (Found_sexp (sexp_of_exn exn))
-            | None | Some _ -> ()
-          in
-          Ids.iter act exn_handler_map;
-          None
-        with Found_sexp sexp -> Some sexp
-
-ENDIF
+  let get_max_exn_tags () = !max_exn_tags
 end
 
 let sexp_of_exn_opt exn =
