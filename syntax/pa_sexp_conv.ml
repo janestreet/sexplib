@@ -12,7 +12,57 @@ open Syntax
 
 module Gen = Pa_type_conv.Gen
 
+module String = struct
+  include String
+  module Map = struct
+    include Map.Make(String)
+    let find t key =
+      try Some (find key t) with Not_found -> None
+  end
+end
+
+(* A renaming is a mapping from type variable name to type variable name.
+   In definitions such as:
+
+   type 'a t =
+     | A : <type> -> 'b t
+     | B of 'a
+
+   we generate a function that takes an sexp_of parameter named after 'a, but 'a is not in
+   scope in <type> when handling the constructor A (because A is a gadt constructor).
+   Instead the type variables in scope are the ones defined in the return type of A,
+   namely 'b. There could be less or more type variable in cases such as:
+
+   type _ less = Less : int less
+   type _ more = More : ('a * 'a) more
+
+   If for instance, <type> is ['b * 'c], when we find 'b, we will look for ['b] in the
+   renaming and find ['a] (only in that gadt branch, it could be something else in other
+   branches), at which point we can call the previously bound sexp_of parameter named
+   after 'a.
+   If we can't find a resulting name, like when looking up ['c] in the renaming, then we
+   assume the variable is existentially quantified and treat it as [_] (which is ok,
+   assuming there are no constraints). *)
+module Renaming = struct
+  type t = [ `Ok of string | `Exn of exn ] String.Map.t option
+  let identity = None
+  let binding_kind t var =
+    match t with
+    | None -> `Universally_bound var
+    | Some map ->
+      match String.Map.find map var with
+      | None -> `Existentially_bound
+      | Some (`Ok value) -> `Universally_bound value
+      | Some (`Exn exn) -> raise exn
+end
+
 (* Utility functions *)
+
+let drop_variance_and_name_type_params tps =
+  List.map tps ~f:(function
+    | <:ctyp< _ >> -> "v" ^ Gen.gensym ()
+    | ty -> Gen.get_tparam_id ty
+  )
 
 let rec go_through_private_and_manifest_types = function
   | <:ctyp< private $tp$ >> -> (true, tp)
@@ -80,13 +130,23 @@ let type_app base_type types =
     <:ctyp@loc< $acc$ $typ$ >>)
 ;;
 
-(* Generates the quantified type [ ! 'a .. 'z . (make_mono_type t ('a .. 'z)) ], or [None]
-   if there are no type parameters.
+(* Generates the quantified type [ ! 'a .. 'z . (make_mono_type t ('a .. 'z)) ] or
+   [type a .. z. make_mono_type t (a .. z)] when [use_rigid_variables] is true.
+   Annotation are needed for non regular recursive datatypes and gadt when the return type
+   of constructors are constrained. Unfortunately, putting rigid variables everywhere does
+   not work because of certains types with constraints. We thus only use rigid variables
+   for sum types, which includes all GADTs. *)
+let variable_of_name loc ~use_rigid_variables x =
+  if use_rigid_variables then <:ctyp@loc< $lid:x$ >> else <:ctyp@loc< '$lid:x$ >>
 
-   A quantified type annotation is required for of_sexp and to_sexp functions for
-   non-regular types, such as [ type t 'a = [ A of 'a | B of t 'a 'a ] ]. *)
-let mk_poly_type make_mono_type loc type_name type_params =
-  let type_params = List.map type_params ~f:Gen.drop_variance_annotations in
+let quantify loc ~use_rigid_variables vars body =
+  if use_rigid_variables then
+    Ast.TyTypePol (loc, vars, body)
+  else
+    <:ctyp@loc< ! $vars$ . $body$ >>
+
+let mk_poly_type ~use_rigid_variables make_mono_type loc type_name type_params =
+  let type_params = List.map type_params ~f:(variable_of_name loc ~use_rigid_variables) in
   let unquantified_type = make_mono_type <:ctyp@loc< $lid:type_name$ >> type_params in
   let loc = Ast.loc_of_ctyp unquantified_type in
   match type_params with
@@ -95,21 +155,7 @@ let mk_poly_type make_mono_type loc type_name type_params =
   | first :: rest ->
     (* It's confusing that you need an application between the '!' and the '.'. I would
        have expected a list. *)
-    <:ctyp@loc< ! $type_app first rest$ . $unquantified_type$ >>
-
-(* This transformation is sensible only when the gadt syntax is used to describe regular
-   variants or existential types but not when the return type is constrained like in [type
-   'a t = Int : int t]. In this last case, the generated code is not going to compile
-   because [sexp_of_t] would have type [('a -> Sexp.t) -> int t -> Sexp.t] and there is
-   type constraint ['a. ('a -> Sexp.t) -> 'a t -> Sexp.t]. *)
-let regular_variant_of_gadt_syntax = function
-  | <:ctyp@loc< $uid:cnstr$ : $args$ -> $return_type$ >> ->
-    ignore return_type;
-    <:ctyp@loc< $uid:cnstr$ of $args$ >>
-  | <:ctyp@loc< $uid:cnstr$ : $return_type$ >> ->
-    ignore return_type;
-    <:ctyp@loc< $uid:cnstr$ >>
-  | ctyp -> ctyp
+    quantify loc ~use_rigid_variables <:ctyp< $type_app first rest$ >> unquantified_type
 
 (* Generators for S-expressions *)
 
@@ -263,26 +309,30 @@ module Generate_sexp_of = struct
     | [] -> assert false  (* impossible *)
 
   (* Conversion of types *)
-  let rec sexp_of_type = function
+  let rec sexp_of_type (renaming : Renaming.t) = function
     | <:ctyp@loc< _ >> ->
         `Fun <:expr@loc< fun _ -> Sexp.Atom "_" >>
     | <:ctyp@loc< sexp_opaque $_$ >> ->
         `Fun <:expr@loc< Sexplib.Conv.sexp_of_opaque >>
-    | <:ctyp@loc< $tp1$ $tp2$ >> -> `Fun (sexp_of_appl_fun loc tp1 tp2)
-    | <:ctyp< ( $tup:tp$ ) >> -> sexp_of_tuple tp
-    | <:ctyp@loc< '$parm$ >> -> `Fun <:expr@loc< $lid:"_of_" ^ parm$ >>
+    | <:ctyp@loc< $tp1$ $tp2$ >> -> `Fun (sexp_of_appl_fun loc renaming tp1 tp2)
+    | <:ctyp< ( $tup:tp$ ) >> -> sexp_of_tuple renaming tp
+    | <:ctyp@loc< '$parm$ >> ->
+      begin match Renaming.binding_kind renaming parm with
+      | `Universally_bound parm -> `Fun <:expr@loc< $lid:"_of_" ^ parm$ >>
+      | `Existentially_bound -> sexp_of_type renaming <:ctyp@loc< _ >>
+      end
     | <:ctyp@loc< $id:id$ >> -> `Fun (sexp_of_path_fun loc id)
     | <:ctyp@loc< $_$ -> $_$ >> ->
         `Fun <:expr@loc< fun _f ->
           Sexplib.Conv.sexp_of_fun Pervasives.ignore >>
     | <:ctyp< [< $row_fields$ ] >> | <:ctyp< [> $row_fields$ ] >>
-    | <:ctyp< [= $row_fields$ ] >> -> sexp_of_variant row_fields
-    | <:ctyp< ! $parms$ . $poly_tp$ >> -> sexp_of_poly parms poly_tp
+    | <:ctyp< [= $row_fields$ ] >> -> sexp_of_variant renaming row_fields
+    | <:ctyp< ! $parms$ . $poly_tp$ >> -> sexp_of_poly renaming parms poly_tp
     | tp -> Gen.unknown_type tp "sexp_of_type"
 
   (* Conversion of polymorphic types *)
-  and sexp_of_appl_fun loc tp1 tp2 =
-    match sexp_of_type tp1, sexp_of_type tp2 with
+  and sexp_of_appl_fun loc renaming tp1 tp2 =
+    match sexp_of_type renaming tp1, sexp_of_type renaming tp2 with
     | `Fun fun_expr1, `Fun fun_expr2 -> <:expr@loc< $fun_expr1$ $fun_expr2$ >>
     | `Fun fun_expr, `Match matching ->
         <:expr@loc< $fun_expr$ (fun [ $matching$ ]) >>
@@ -290,9 +340,9 @@ module Generate_sexp_of = struct
 
 
   (* Conversion of tuples *)
-  and sexp_of_tuple tp =
+  and sexp_of_tuple renaming tp =
     let loc = Ast.loc_of_ctyp tp in
-    let fps = List.map ~f:sexp_of_type (Ast.list_of_ctyp tp []) in
+    let fps = List.map ~f:(fun tp -> sexp_of_type renaming tp) (Ast.list_of_ctyp tp []) in
     let bindings, patts, vars = mk_bindings loc fps in
     let in_expr = <:expr@loc< Sexplib.Sexp.List $Gen.mk_expr_lst loc vars$ >> in
     let expr = <:expr@loc< let $bindings$ in $in_expr$ >> in
@@ -301,13 +351,13 @@ module Generate_sexp_of = struct
 
   (* Conversion of variant types *)
 
-  and mk_cnv_expr tp =
+  and mk_cnv_expr renaming tp =
     let loc = Ast.loc_of_ctyp tp in
-    match sexp_of_type tp with
+    match sexp_of_type renaming tp with
     | `Fun fun_expr -> <:expr@loc< $fun_expr$ >>
     | `Match matchings -> <:expr@loc< fun [ $matchings$ ] >>
 
-  and sexp_of_variant row_fields =
+  and sexp_of_variant renaming row_fields =
     let rec loop = function
       | <:ctyp@loc< $tp1$ | $tp2$ >> ->
           <:match_case@loc< $loop tp1$ | $loop tp2$ >>
@@ -317,7 +367,7 @@ module Generate_sexp_of = struct
       | <:ctyp@loc< `$cnstr$ of sexp_list $tp$>> ->
         let str = Pa_type_conv.Gen.regular_constr_of_revised_constr cnstr in
         let cnv_expr =
-          match sexp_of_type tp with
+          match sexp_of_type renaming tp with
           | `Fun fun_expr -> <:expr@loc< $fun_expr$ >>
           | `Match matchings ->
               <:expr@loc< fun el -> match el with [ $matchings$ ] >>
@@ -330,7 +380,7 @@ module Generate_sexp_of = struct
         >>
       | <:ctyp@loc< `$cnstr$ of $tps$ >> ->
           let str = Pa_type_conv.Gen.regular_constr_of_revised_constr cnstr in
-          let fps = List.map ~f:sexp_of_type (Ast.list_of_ctyp tps []) in
+          let fps = List.map ~f:(fun tp -> sexp_of_type renaming tp) (Ast.list_of_ctyp tps []) in
           let bindings, patts, vars = mk_bindings loc fps in
           let cnstr_expr = <:expr@loc< Sexplib.Sexp.Atom $str:str$ >> in
           let expr =
@@ -344,7 +394,7 @@ module Generate_sexp_of = struct
       | <:ctyp< [= $row_fields$ ] >> -> loop row_fields
       | <:ctyp@loc< $tp1$ $tp2$ >> ->
           let id_path = Gen.get_appl_path loc tp1 in
-          let call = sexp_of_appl_fun loc tp1 tp2 in
+          let call = sexp_of_appl_fun loc renaming tp1 tp2 in
           <:match_case@loc< #$id_path$ as v -> $call$ v >>
       | <:ctyp@loc< $id:id$ >> | <:ctyp@loc< #$id:id$ >> ->
           let call =
@@ -360,7 +410,10 @@ module Generate_sexp_of = struct
 
   (* Polymorphic record fields *)
 
-  and sexp_of_poly parms tp =
+  and sexp_of_poly renaming parms tp =
+    assert (renaming = Renaming.identity); (* because this is only for record fields.
+                                              Otherwise, we'd need to update the renaming
+                                              with the newly bound vars. *)
     let loc = Ast.loc_of_ctyp tp in
     let bindings =
       let mk_binding parm =
@@ -368,7 +421,7 @@ module Generate_sexp_of = struct
       in
       List.map ~f:mk_binding (Gen.ty_var_list_of_ctyp parms [])
     in
-    match sexp_of_type tp with
+    match sexp_of_type renaming tp with
     | `Fun fun_expr -> `Fun <:expr@loc< let $list:bindings$ in $fun_expr$ >>
     | `Match matchings ->
         `Match
@@ -378,21 +431,73 @@ module Generate_sexp_of = struct
               match arg with
               [ $matchings$ ]
           >>
-
+  ;;
 
   (* Conversion of sum types *)
 
-  let rec branch_sum ctyp =
-    match regular_variant_of_gadt_syntax ctyp with
+  let add_typevars_to map = object
+    inherit Ast.fold as super
+    val map = map
+    method map = map
+    method! ctyp = function
+      | <:ctyp@loc< '$lid$ >> ->
+        let exn =
+          Loc.Exc_located (loc, Failure "Variable is not a parameter of the \
+                                                   type constructor")
+        in
+        {< map = String.Map.add map ~key:lid ~data:(`Exn exn) >}
+      | ctyp -> super#ctyp ctyp
+  end
+
+  (* returning None on user error, to let the typer give the error message *)
+  let rec aux_renaming_of_return map rev_tps = function
+    | <:ctyp< $lid:_$ >> -> if rev_tps = [] then Some map else None
+    | <:ctyp< $left$ $param$ >> ->
+      begin match rev_tps with
+      | [] -> None
+      | tp :: rev_tps ->
+        match param with
+        | <:ctyp@loc< '$var$ >> ->
+          let value_opt =
+            match String.Map.find map var with
+            | Some (`Exn _) -> None
+            | Some (`Ok _) -> Some (`Exn (Loc.Exc_located (loc, Failure "Duplicate variable")))
+            | None -> Some (`Ok tp)
+          in
+          begin match value_opt with
+          | None -> aux_renaming_of_return map rev_tps left
+          | Some value ->
+            let map = String.Map.add map ~key:var ~data:value in
+            aux_renaming_of_return map rev_tps left
+          end
+        | ctyp ->
+          let map = ((add_typevars_to map)#ctyp ctyp)#map in
+          aux_renaming_of_return map rev_tps left
+      end
+    | _ -> None
+
+  let renaming_of_return tps return_type =
+    aux_renaming_of_return String.Map.empty (List.rev tps) return_type
+
+  let regular_variant_of_gadt_syntax tps = function
+    | <:ctyp@loc< $uid:cnstr$ : $args$ -> $return_type$ >> ->
+      <:ctyp@loc< $uid:cnstr$ of $args$ >>, renaming_of_return tps return_type
+    | <:ctyp@loc< $uid:cnstr$ : $return_type$ >> ->
+      <:ctyp@loc< $uid:cnstr$ >>, renaming_of_return tps return_type
+    | ctyp -> ctyp, None
+
+  let rec branch_sum tps ctyp =
+    let ctyp, renaming = regular_variant_of_gadt_syntax tps ctyp in
+    match ctyp with
     | <:ctyp@loc< $tp1$ | $tp2$ >> ->
-        <:match_case@loc< $branch_sum tp1$ | $branch_sum tp2$ >>
+        <:match_case@loc< $branch_sum tps tp1$ | $branch_sum tps tp2$ >>
     | <:ctyp@loc< $uid:cnstr$ >> ->
         let str = Pa_type_conv.Gen.regular_constr_of_revised_constr cnstr in
         <:match_case@loc< $uid:cnstr$ -> Sexplib.Sexp.Atom $str:str$ >>
     | <:ctyp@loc< $uid:cnstr$ of sexp_list $tp$>> ->
         let str = Pa_type_conv.Gen.regular_constr_of_revised_constr cnstr in
         let cnv_expr =
-          match sexp_of_type tp with
+          match sexp_of_type renaming tp with
           | `Fun fun_expr -> <:expr@loc< $fun_expr$ >>
           | `Match matchings ->
               <:expr@loc< fun el -> match el with [ $matchings$ ] >>
@@ -405,7 +510,7 @@ module Generate_sexp_of = struct
         >>
     | <:ctyp@loc< $uid:cnstr$ of $tps$ >> ->
         let str = Pa_type_conv.Gen.regular_constr_of_revised_constr cnstr in
-        let fps = List.map ~f:sexp_of_type (Ast.list_of_ctyp tps []) in
+        let fps = List.map ~f:(fun tp -> sexp_of_type renaming tp) (Ast.list_of_ctyp tps []) in
         let cnstr_expr = <:expr@loc< Sexplib.Sexp.Atom $str:str$ >> in
         let bindings, patts, vars = mk_bindings loc fps in
         let patt =
@@ -420,7 +525,7 @@ module Generate_sexp_of = struct
         >>
     | tp -> Gen.unknown_type tp "branch_sum"
 
-  let sexp_of_sum alts = `Match (branch_sum alts)
+  let sexp_of_sum tps alts = `Match (branch_sum tps alts)
 
 
   (* Conversion of record types *)
@@ -430,10 +535,11 @@ module Generate_sexp_of = struct
     <:patt@loc< $patt$; $p$ >>
 
   let sexp_of_record_field patt expr name tp ?sexp_of is_empty_expr =
+    let renaming = Renaming.identity in
     let loc = Ast.loc_of_ctyp tp in
     let patt = mk_rec_patt loc patt name in
     let cnv_expr =
-      match sexp_of_type tp with
+      match sexp_of_type renaming tp with
       | `Fun fun_expr -> <:expr@loc< $fun_expr$ >>
       | `Match matchings ->
           <:expr@loc< fun el -> match el with [ $matchings$ ] >>
@@ -465,6 +571,7 @@ module Generate_sexp_of = struct
       (fun loc expr -> <:expr@loc< Pervasives.(=) $default$ $expr$ >>)
 
   let sexp_of_record flds_ctyp =
+    let renaming = Renaming.identity in
     let flds = Ast.list_of_ctyp flds_ctyp [] in
     let list_empty_expr loc lst = <:expr@loc<
       match $lst$ with
@@ -485,7 +592,7 @@ module Generate_sexp_of = struct
       | <:ctyp@loc< $lid:name$ : sexp_option $tp$ >> ->
         let patt = mk_rec_patt loc patt name in
         let vname = <:expr@loc< v >> in
-        let cnv_expr = unroll_cnv_fp loc vname (sexp_of_type tp) in
+        let cnv_expr = unroll_cnv_fp loc vname (sexp_of_type renaming tp) in
         let expr =
           <:expr@loc<
             let bnds =
@@ -539,7 +646,7 @@ module Generate_sexp_of = struct
         | _, `keep ->
             let patt = mk_rec_patt loc patt name in
             let vname = <:expr@loc< $lid:"v_" ^ name$ >> in
-            let cnv_expr = unroll_cnv_fp loc vname (sexp_of_type tp) in
+            let cnv_expr = unroll_cnv_fp loc vname (sexp_of_type renaming tp) in
             let expr =
               <:expr@loc<
                 let arg = $cnv_expr$ in
@@ -573,16 +680,22 @@ module Generate_sexp_of = struct
   (* Generate code from type definitions *)
 
   let sexp_of_td loc type_name tps rhs =
+    let tps = drop_variance_and_name_type_params tps in
     let is_private, rhs = go_through_private_and_manifest_types rhs in
+    let use_rigid_variables =
+      match rhs with
+      | <:ctyp< [ $_$ ] >> -> true
+      | _ -> false
+    in
     let body =
       let is_private_alias, body =
         Gen.switch_tp_def rhs
-          ~alias:   (fun (_ : Loc.t) tp  -> (is_private, sexp_of_type    tp))
-          ~sum:     (fun (_ : Loc.t) tp  -> (false     , sexp_of_sum     tp))
-          ~record:  (fun (_ : Loc.t) tp  -> (false     , sexp_of_record  tp))
-          ~variants:(fun (_ : Loc.t) tp  -> (false     , sexp_of_variant tp))
-          ~mani:    (fun (_ : Loc.t) _ _ -> assert false                    )
-          ~nil:     (fun loc             -> (false     , sexp_of_nil loc   ))
+          ~alias:   (fun (_ : Loc.t) tp  -> (is_private, sexp_of_type Renaming.identity tp))
+          ~sum:     (fun (_ : Loc.t) tp  -> (false     , sexp_of_sum tps tp))
+          ~record:  (fun (_ : Loc.t) tp  -> (false     , sexp_of_record tp))
+          ~variants:(fun (_ : Loc.t) tp  -> (false     , sexp_of_variant Renaming.identity tp))
+          ~mani:    (fun (_ : Loc.t) _ _ -> assert false)
+          ~nil:     (fun loc             -> (false     , sexp_of_nil loc))
       in
       if is_private_alias then
         (* Replace all type variable by _ to avoid generalization problems *)
@@ -603,12 +716,12 @@ module Generate_sexp_of = struct
         | `Match matchings ->
           <:expr@loc< fun [ $matchings$ ] >>
     in
-    let patts =
-      List.map tps
-        ~f:(fun ty -> <:patt@loc< $lid:"_of_" ^ Gen.get_tparam_id ty$>>)
-    in
+    let patts = List.map tps ~f:(fun id -> <:patt@loc< $lid:"_of_" ^ id$>>) in
     let body = Gen.abstract loc patts body in
-    let annot = mk_poly_type Sig_generate_sexp_of.sig_of_td__loop loc type_name tps in
+    let annot =
+      mk_poly_type ~use_rigid_variables
+        Sig_generate_sexp_of.sig_of_td__loop loc type_name tps
+    in
     <:binding@loc< $lid:"sexp_of_" ^ type_name$ : $annot$ = $body$ >>
 
   let rec sexp_of_tds = function
@@ -634,6 +747,7 @@ module Generate_sexp_of = struct
   let () = Pa_type_conv.add_generator "sexp_of" sexp_of
 
   let sexp_of_exn _rec tp =
+    let renaming = Renaming.identity in
     let get_full_cnstr str = Pa_type_conv.get_conv_path () ^ "." ^ str in
     let expr =
       match tp with
@@ -645,7 +759,7 @@ module Generate_sexp_of = struct
       | <:ctyp@loc< $uid:cnstr$ of $tps$ >> ->
           let str = Pa_type_conv.Gen.regular_constr_of_revised_constr cnstr in
           let ctyps = Ast.list_of_ctyp tps [] in
-          let fps = List.map ~f:sexp_of_type ctyps in
+          let fps = List.map ~f:(fun tp -> sexp_of_type renaming tp) ctyps in
           let sexp_converters =
             List.map fps ~f:(function
             | `Fun fun_expr -> <:expr@loc< $fun_expr$ >>
@@ -1014,8 +1128,7 @@ module Generate_of_sexp = struct
   (* Sum type conversions *)
 
   (* Generate matching code for well-formed S-expressions wrt. sum types *)
-  let rec mk_good_sum_matches ctyp =
-    match regular_variant_of_gadt_syntax ctyp with
+  let rec mk_good_sum_matches = function
     | <:ctyp@loc< $uid:cnstr$ >> ->
         let str = Pa_type_conv.Gen.regular_constr_of_revised_constr cnstr in
         let lcstr = String.uncapitalize str in
@@ -1036,12 +1149,13 @@ module Generate_of_sexp = struct
             $mk_good_sum_matches tp1$
           | $mk_good_sum_matches tp2$
         >>
+    | <:ctyp< $_$ : $_$ >> as tp -> Gen.error tp ~fn:"mk_good_sum_matches"
+      ~msg:"GADTs are not supported by sexplib for of_sexp"
     | _ -> assert false  (* impossible *)
 
   (* Generate matching code for malformed S-expressions with good tags
      wrt. sum types *)
-  let rec mk_bad_sum_matches ctyp =
-    match regular_variant_of_gadt_syntax ctyp with
+  let rec mk_bad_sum_matches = function
     | <:ctyp@loc< $uid:cnstr$ >> ->
         let str = Pa_type_conv.Gen.regular_constr_of_revised_constr cnstr in
         let lcstr = String.uncapitalize str in
@@ -1062,6 +1176,8 @@ module Generate_of_sexp = struct
             $mk_bad_sum_matches tp1$
           | $mk_bad_sum_matches tp2$
         >>
+    | <:ctyp< $_$ : $_$ >> as tp -> Gen.error tp ~fn:"mk_good_bad_matches"
+      ~msg:"GADTs are not supported by sexplib for of_sexp"
     | _ -> assert false  (* impossible *)
 
   (* Generate matching code for sum types *)
@@ -1341,6 +1457,7 @@ module Generate_of_sexp = struct
   (* Generate code from type definitions *)
 
   let td_of_sexp loc type_name tps rhs =
+    let tps = drop_variance_and_name_type_params tps in
     let alias_ref = ref `Not_an_alias in
     let handle_alias tp =
       alias_ref :=
@@ -1357,6 +1474,11 @@ module Generate_of_sexp = struct
     in
     let is_private, rhs = go_through_private_and_manifest_types rhs in
     if is_private then Loc.raise loc (Failure "of_sexp is not supported for private type");
+    let use_rigid_variables =
+      match rhs with
+      | <:ctyp< [ $_$ ] >> -> true
+      | _ -> false
+    in
     let body =
       let body =
         Gen.switch_tp_def rhs
@@ -1369,19 +1491,18 @@ module Generate_of_sexp = struct
       in
       match body with
       | `Fun fun_expr ->
-          (* Prevent violation of value restriction and problems with
-             recursive types by eta-expanding function definitions *)
-          <:expr@loc< fun [ t -> $fun_expr$ t ] >>
+        (* Prevent violation of value restriction and problems with
+           recursive types by eta-expanding function definitions *)
+        <:expr@loc< fun [ t -> $fun_expr$ t ] >>
       | `Match matchings -> <:expr@loc< fun [ $matchings$ ] >>
     in
     let external_name = type_name ^ "_of_sexp" in
     let internal_name = "__" ^ type_name ^ "_of_sexp__" in
     let arg_patts, arg_exprs =
       List.split (
-        List.map ~f:(function tp ->
-            let name = "_of_" ^ Gen.get_tparam_id tp in
-            <:patt@loc< $lid:name$ >>, <:expr@loc< $lid:name$ >>
-          )
+        List.map ~f:(fun tp ->
+            let name = "_of_" ^ tp in
+            <:patt@loc< $lid:name$ >>, <:expr@loc< $lid:name$ >>)
           tps)
     in
     let with_poly_call =
@@ -1436,7 +1557,10 @@ module Generate_of_sexp = struct
       Gen.abstract loc arg_patts
         <:expr@loc< fun sexp -> ($pre_external_fun_body$) >>
     in
-    let annot = mk_poly_type Sig_generate_of_sexp.sig_of_td__loop loc type_name tps in
+    let annot =
+      mk_poly_type ~use_rigid_variables
+        Sig_generate_of_sexp.sig_of_td__loop loc type_name tps
+    in
     let internal_binding =
       <:binding@loc< $lid:internal_name$ : $annot$ = $internal_fun_body$ >> in
     let external_binding =
@@ -1510,9 +1634,10 @@ module Quotations = struct
     Quotation.add "of_sexp" Quotation.DynAst.expr_tag of_sexp_quote
 
   let sexp_of_quote loc _loc_name_opt cnt_str =
+    let renaming = Renaming.identity in
     Pa_type_conv.set_conv_path_if_not_set loc;
     let ctyp = Gram.parse_string ctyp_quot loc cnt_str in
-    Generate_sexp_of.mk_cnv_expr ctyp
+    Generate_sexp_of.mk_cnv_expr renaming ctyp
 
   let () = Quotation.add "sexp_of" Quotation.DynAst.expr_tag sexp_of_quote
 end

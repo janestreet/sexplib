@@ -1,3 +1,8 @@
+## 112.17.00
+
+- Added `sexp_of_` support for GADTs, and remove the not-quite-working
+  support for `of_sexp`.
+
 ## 112.06.00
 
 - Improved the implementation of `Exn.sexp_of_t`, using the unique id in

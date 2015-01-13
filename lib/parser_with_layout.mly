@@ -1,7 +1,6 @@
 %{
   (** Parser: Grammar Specification for Parsing S-expressions *)
   (* compare to parser.mly *)
-  (*  *) (* C inside Ocaml comment to satisfy cr *)
 
   open Lexing
 

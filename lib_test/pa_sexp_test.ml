@@ -201,26 +201,52 @@ module True_and_false = struct
 
 end
 
-module Gadt_syntax = struct
+module Gadt = struct
+  let is_eq sexp str =
+    let sexp2 = Sexp.of_string str in
+    if sexp <> sexp2 then begin
+      Printf.printf "%S vs %S\n%!" (Sexp.to_string sexp) str;
+      assert false
+    end
+
   (* plain type without argument *)
-  type 'a s = Packed : 'a s with sexp
-  let () = assert (Sexp.to_string (<:sexp_of< int s >> Packed) = "Packed")
-  let () = assert (Packed = <:of_sexp< int s >> (Sexp.of_string "Packed"))
+  type 'a s = Packed : 'a s with sexp_of
+  let () = is_eq (<:sexp_of< int s >> Packed) "Packed"
 
   (* two kind of existential variables *)
-  type 'a t = Packed : 'a * _ * 'b sexp_opaque -> 'a t with sexp
-  let () = assert (Sexp.to_string (<:sexp_of< int t >> (Packed (2, "asd", 1.))) =
-                   "(Packed 2 _ <opaque>)")
+  type 'a t = Packed : 'a * _ * 'b sexp_opaque -> 'a t with sexp_of
+  let () = is_eq (<:sexp_of< int t >> (Packed (2, "asd", 1.))) "(Packed 2 _ <opaque>)"
 
   (* plain type with argument *)
-  type 'a u = A : 'a -> 'a u with sexp
-  let () = assert (Sexp.to_string (<:sexp_of< int u >> (A 2)) = "(A 2)")
-  let () = assert (A 2 = <:of_sexp< int u >> (Sexp.of_string "(A 2)"))
+  type 'a u = A : 'a -> 'a u with sexp_of
+  let () = is_eq (<:sexp_of< int u >> (A 2)) "(A 2)"
 
   (* recursive *)
-  type v = A : v option -> v with sexp
-  let () = assert (Sexp.to_string (<:sexp_of< v >> (A (Some (A None)))) = "(A((A())))")
-  let () = assert (A (Some (A None)) = <:of_sexp< v >> (Sexp.of_string "(A((A())))"))
+  type v = A : v option -> v with sexp_of
+  let () = is_eq (<:sexp_of< v >> (A (Some (A None)))) "(A((A())))"
+
+  (* implicit existential variable *)
+  type w = A : 'a * int * ('a -> string) -> w with sexp_of
+  let () = is_eq (<:sexp_of< w >> (A (1., 2, string_of_float))) "(A _ 2 <fun>)"
+
+  (* tricky variable naming *)
+  type 'a x = A : 'a -> 'b x with sexp_of
+  let () = is_eq (<:sexp_of< int x >> (A 1.)) "(A _)"
+
+  (* unused but colliding variables *)
+  type (_, _) y = A : ('a, 'a) y with sexp_of
+  let () = is_eq (<:sexp_of< (int, int) y >> A) "A"
+
+  (* making sure we're not reversing parameters *)
+  type (_, _) z = A : ('a * 'b) -> ('a, 'b) z with sexp_of
+  let () = is_eq (<:sexp_of< (int, string) z >> (A (1, "a"))) "(A (1 a))"
+
+end
+
+module Anonymous_variable = struct
+  type _ t = int with sexp
+  let () = assert (Sexp.to_string (<:sexp_of< _ t >> 2) = "2")
+  let () = assert (<:of_sexp< _ t >> (Sexp.of_string "2") = 2)
 end
 
 module Record_field_disambiguation = struct
