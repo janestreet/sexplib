@@ -1,3 +1,7 @@
+## 112.24.00
+
+Minor update: documentation.
+
 ## 112.17.00
 
 - Added `sexp_of_` support for GADTs, and remove the not-quite-working

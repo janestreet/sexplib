@@ -3,35 +3,45 @@
    functions in this module evaluate the following constructs within
    s-expressions:
 
-   - [(:include filename)] is replaced with the list of s-expressions contained
+   {ul
+   {- [(:include filename)] is replaced with the list of s-expressions contained
    in [filename], as if the contents of [filename] were directly inserted in
    place of [(:include filename)].  A relative [filename] is taken with respect
-   to the file that contains the include macro.
+   to the file that contains the include macro.}
 
-   - [(:let v (v1 ... vn) S1 ... Sn)] defines a template [v] with arguments [v1,
-   ..., vn] and body [S1 ... Sn]. The definition itself is removed from the
+   {- [(:let v (v1 ... vn) S1 ... Sm)] defines a template [v] with arguments [v1,
+   ..., vn] and body [S1 ... Sm]. The definition itself is removed from the
    input. The variables [v1, ..., vn] must be exactly the free variables of [S1,
-   ..., Sn]. In particular, since a macro argument cannot be a function, a let
-   body cannot call a macro that is defined elsewhere, only a macro that is
-   defined in the body itself. However if you want to use the same macro inside
-   two macros, it is still possible to define it in a separate file and include it
-   in both macros. The list [S1 ... Sn] may not be empty.
+   ..., Sm] (see below for the meaning of "free variable"). In particular, since
+   a macro argument cannot be a function, a let body cannot call a macro that is
+   defined elsewhere, only a macro that is defined in the body itself. However if
+   you want to use the same macro inside two macros, it is still possible to define
+   it in a separate file and include it in both macros. The list [S1 ... Sm] may
+   not be empty.}
 
-   - [(:use v (v1 SS1) ... (vn SSn))] expands to the body of the template [v]
+   {- [(:use v (v1 SS1) ... (vn SSn))] expands to the body of the template [v]
    with lists of s-expressions [SS1, ..., SSn] substituted for the arguments
-   [v1, ..., vn] of [v].
+   [v1, ..., vn] of [v].}
 
-   - [(:concat S1 ... Sn)] evaluates [S1 ... Sn] to atoms [C1, ..., Cn] when
-   possible and is replaced by the string concatenation [C1 | ... | Cn].
+   {- [(:concat S1 ... Sn)] evaluates [S1 ... Sn] to atoms [C1, ..., Cn] when
+   possible and is replaced by the string concatenation [C1 | ... | Cn].}}
 
    Macros other than [:include] will be called 'local'. All [:include] macros
    are resolved before all the local macros, which means that included file
    names cannot contain variables.
 
-   Ocaml scoping rules apply - a variable is bound from the point of its
-   definition until the end of the current sexp nesting level. Trying to [:use]
-   an unbound variable is an error. Neither the top level file nor any of the
-   included files may contain unbound variables.
+   The occurrence of variable [v] in [(:use v ...)] can be either free or bound, depending
+   on the surrounding sexp.  The occurrence is free iff it it's not bound, and it's bound
+   iff one of the following two conditions apply:
+
+   {ol
+   {- All occurrences of [v1], ..., [vn] in the body of [(:let v (v1 ... vn) S1 ... Sm)]
+   are bound.}
+   {- All occurrences of [v] from the appearance of [(:let v (v1 ... vn) S1 ... Sm)] to
+   the end of the sexp nesting level are bound.}}
+
+   Trying to [:use] an unbound variable is an error. Neither the top level file nor any of
+   the included files may contain unbound variables.
 
    The [load...] functions of this module mirror the corresponding functions of
    the [Sexp] module except that they expand the macros in the loaded file and
@@ -45,7 +55,6 @@
    (:include defs.sexp)
    (:include template.sexp)
    (:use f (a (:use a)) (b (:use b)))
-   )
    ]}
 
    the file [defs.sexp] contains
