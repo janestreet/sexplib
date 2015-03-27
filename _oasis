@@ -13,7 +13,7 @@ Homepage:         https://github.com/janestreet/sexplib
 Plugins:          StdFiles (0.3), DevFiles (0.3), META (0.3)
 XStdFilesAUTHORS: false
 XStdFilesREADME:  false
-BuildTools:       ocamlbuild, camlp4o
+BuildTools:       ocamlbuild
 
 Flag syntax
   Description: Build the syntax extension
