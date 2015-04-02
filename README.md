@@ -493,7 +493,7 @@ Contact Information and Contributing
 In the case of bugs, feature requests, contributions and similar, please
 contact the maintainers:
 
-  * Jane Street Capital, LLC <opensource@janestreet.com>
+  * Jane Street Group, LLC <opensource@janestreet.com>
 
 Up-to-date information should be available at:
 * <https://github.com/janestreet/sexplib>
