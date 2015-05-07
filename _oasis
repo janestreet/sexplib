@@ -79,14 +79,14 @@ Library sexplib_top
   XMETADescription:   Toplevel printers for S-expressions
 
 Executable sexp_test
-  Path:               lib_test
+  Path:               syntax_test
   MainIs:             sexp_test.ml
   Build$:             flag(syntax) && flag(tests)
   Install:            false
   BuildDepends:       sexplib
 
 Executable conv_test
-  Path:               lib_test
+  Path:               syntax_test
   MainIs:             conv_test.ml
   Build$:             flag(syntax) && flag(tests)
   Install:            false
