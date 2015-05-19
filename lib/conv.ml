@@ -28,7 +28,7 @@ external format_float : string -> float -> string = "caml_format_float"
    which was converted from a decimal (string) with <= 15 significant digits.  So it's
    worth trying first to avoid things like "3.1400000000000001".
 
-   See comment above [to_string_round_trippable] in [base/core/kernel/lib/float.ml] for
+   See comment above [to_string_round_trippable] in {!Core_kernel.Float} for
    detailed explanation and examples. *)
 let default_string_of_float =
   ref (fun x ->

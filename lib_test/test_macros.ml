@@ -391,11 +391,9 @@ module Make (Load : Load) = struct
             (Failure \"Error evaluating macros: Empty let bodies not allowed\"))
           (:let f ()))"]
 
-  exception Conv_error
-
   let rec conv_error = function
     | Sexp.List [ Sexp.Atom "trigger"; Sexp.Atom "error" ] as t ->
-      raise (Pre_sexp.Of_sexp_error (Conv_error, t))
+      raise (Pre_sexp.Of_sexp_error (Exit, t))
     | Sexp.Atom _ -> ()
     | Sexp.List ts -> List.iter conv_error ts
 
@@ -409,7 +407,7 @@ module Make (Load : Load) = struct
          (foo bar (trigger (:use err)))" ]
       ~expect:["((Sexplib.Sexp.Annotated.Conv_exn
                 DIR/include.sexp:2:18
-                (\"Test_macros.Make(Load).Conv_error\"))
+                \"Exit\")
                 (trigger (:use err)) (expanded (trigger error)))"]
 
   TEST_UNIT "multiple conversion errors" =

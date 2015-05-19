@@ -744,7 +744,12 @@ let mk_cont_parser cont_parse = (); fun _state str ~max_pos ~pos ->
       | '"' -> \
           bump_found_atom \
             bump_text_pos state str ~max_pos ~pos reg_parse_quoted \
-      | c -> add_bump_pos state str ~max_pos ~pos c parse_atom \
+      | c -> \
+          (* This is [add_bump_pos state str ~max_pos ~pos c parse_atom] inlined by \
+             hand, see https://github.com/janestreet/sexplib/pull/14 for details: *) \
+          Buffer.add_char state.pbuf c; \
+          bump_text_pos state; \
+          parse_atom state str ~max_pos ~pos:(pos + 1) \
   \
   and maybe_parse_bad_atom_pipe state str ~max_pos ~pos = \
     if pos > max_pos then \
@@ -789,7 +794,12 @@ let mk_cont_parser cont_parse = (); fun _state str ~max_pos ~pos ->
               bump_pos_cont state str ~max_pos ~pos PARSE) \
       | '\\' -> bump_pos_cont state str ~max_pos ~pos parse_escaped \
       | '\010' as c -> add_bump_line state str ~max_pos ~pos c parse_quoted \
-      | c -> add_bump_pos state str ~max_pos ~pos c parse_quoted \
+      | c -> \
+          (* This is [add_bump_pos state str ~max_pos ~pos c parse_quoted] inlined by \
+             hand, see https://github.com/janestreet/sexplib/pull/14 for details: *) \
+          Buffer.add_char state.pbuf c; \
+          bump_text_pos state; \
+          parse_quoted state str ~max_pos ~pos:(pos + 1) \
   \
   and parse_escaped state str ~max_pos ~pos = \
     if pos > max_pos then mk_cont "parse_escaped" parse_escaped state \
