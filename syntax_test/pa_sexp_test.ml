@@ -247,6 +247,14 @@ module Anonymous_variable = struct
   type _ t = int with sexp
   let () = assert (Sexp.to_string (<:sexp_of< _ t >> 2) = "2")
   let () = assert (<:of_sexp< _ t >> (Sexp.of_string "2") = 2)
+
+  (* making sure we don't generate signatures like (_ -> Sexp.t) -> _ t -> Sexp.t which
+     are too general *)
+  module M : sig
+    type _ t with sexp
+  end = struct
+    type 'a t = 'a with sexp
+  end
 end
 
 module Record_field_disambiguation = struct

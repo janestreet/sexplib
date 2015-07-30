@@ -67,7 +67,7 @@ type 'a function_field_with_labeled_argument = { f : x:'a -> 'a } with sexp
 
 (* Test non-regular types *)
 type 'a nonregular = Leaf of 'a | Branch of ('a * 'a) nonregular with sexp
-type ('a, 'b) nonregular_with_variant = Branch of ([ 'a list variant ], 'b) nonregular_with_variant
+type ('a, 'b) nonregular_with_variant = Branch of ([ | 'a list variant ], 'b) nonregular_with_variant
 with sexp
 
 (* Test variance annotations *)

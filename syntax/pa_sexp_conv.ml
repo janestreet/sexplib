@@ -64,6 +64,11 @@ let drop_variance_and_name_type_params tps =
     | ty -> Gen.get_tparam_id ty
   )
 
+let drop_variance_and_name_type_params_as_ctyp tps =
+  List.map2 tps (drop_variance_and_name_type_params tps) ~f:(fun tp name ->
+    let loc = Ast.loc_of_ctyp tp in
+    <:ctyp@loc< '$lid:name$ >>)
+
 let rec go_through_private_and_manifest_types = function
   | <:ctyp< private $tp$ >> -> (true, tp)
   | <:ctyp< $_$ == $tp$ >>  -> go_through_private_and_manifest_types tp
@@ -166,12 +171,12 @@ module Sig_generate_sexp_of = struct
         let loc = Ast.loc_of_ctyp acc in
         <:ctyp@loc< $acc$ -> Sexplib.Sexp.t >>
     | tp :: tps ->
-        let tp = Gen.drop_variance_annotations tp in
         let loc = Ast.loc_of_ctyp tp in
         let sexp_of = sig_of_td__loop <:ctyp@loc< $acc$ $tp$ >> tps in
         <:ctyp@loc< ( $tp$ -> Sexplib.Sexp.t ) -> $sexp_of$ >>
 
   let sig_of_td loc type_name tps _rhs _cl =
+    let tps = drop_variance_and_name_type_params_as_ctyp tps in
     let sexp_of = sig_of_td__loop <:ctyp@loc< $lid:type_name$ >> tps in
     <:sig_item@loc< value $lid: "sexp_of_" ^ type_name$ : $sexp_of$ >>
 
@@ -215,12 +220,12 @@ module Sig_generate_of_sexp = struct
         let loc = Ast.loc_of_ctyp acc in
         <:ctyp@loc< Sexplib.Sexp.t -> $acc$ >>
     | tp :: tps ->
-        let tp = Gen.drop_variance_annotations tp in
         let loc = Ast.loc_of_ctyp tp in
         let of_sexp = sig_of_td__loop <:ctyp@loc< $acc$ $tp$ >> tps in
         <:ctyp@loc< ( Sexplib.Sexp.t -> $tp$ ) -> $of_sexp$ >>
 
   let sig_of_td with_poly loc type_name tps rhs _cl =
+    let tps = drop_variance_and_name_type_params_as_ctyp tps in
     let of_sexp = sig_of_td__loop <:ctyp@loc< $lid:type_name$ >> tps in
     let of_sexp_item =
       <:sig_item@loc< value $lid: type_name ^ "_of_sexp"$ : $of_sexp$; >>
@@ -1622,7 +1627,7 @@ module Quotations = struct
     in
     let full_type_name =
       sprintf "%s line %i: %s"
-        (Pa_type_conv.get_conv_path ()) (Loc.start_line loc) cnt_str
+        (Pa_type_conv.get_conv_path ()) (Loc.start_line loc) (Gen.string_of_ctyp ctyp)
     in
     <:expr@loc<
       fun [ sexp ->

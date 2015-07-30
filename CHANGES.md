@@ -1,3 +1,8 @@
+## 112.35.00
+
+- Inline some calls that js_of_ocaml was unable to recognise as
+  tail-recursive (cf. issue #14)
+
 ## 112.24.00
 
 Minor update: documentation.

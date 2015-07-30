@@ -1,5 +1,5 @@
 %{
-  (** Parser: Grammar Specification for Parsing S-expressions *)
+  (* Parser: Grammar Specification for Parsing S-expressions *)
 
   open Lexing
 
