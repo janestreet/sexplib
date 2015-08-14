@@ -1,4 +1,78 @@
 # OASIS_START
+# DO NOT EDIT (digest: d4e37f356595ae68e93bb26c75232ab1)
+# Ignore VCS directories, you can use the same kind of rule outside
+# OASIS_START/STOP if you want to exclude directories that contains
+# useless stuff for the build process
+true: annot, bin_annot
+<**/.svn>: -traverse
+<**/.svn>: not_hygienic
+".bzr": -traverse
+".bzr": not_hygienic
+".hg": -traverse
+".hg": not_hygienic
+".git": -traverse
+".git": not_hygienic
+"_darcs": -traverse
+"_darcs": not_hygienic
+# Library sexplib
+"lib/sexplib.cmxs": use_sexplib
+"lib/conv.cmx": for-pack(Sexplib)
+"lib/conv_error.cmx": for-pack(Sexplib)
+"lib/exn_magic.cmx": for-pack(Sexplib)
+"lib/macro.cmx": for-pack(Sexplib)
+"lib/path.cmx": for-pack(Sexplib)
+"lib/pre_sexp.cmx": for-pack(Sexplib)
+"lib/sexp.cmx": for-pack(Sexplib)
+"lib/sexp_intf.cmx": for-pack(Sexplib)
+"lib/sexp_with_layout.cmx": for-pack(Sexplib)
+"lib/src_pos.cmx": for-pack(Sexplib)
+"lib/std.cmx": for-pack(Sexplib)
+"lib/type.cmx": for-pack(Sexplib)
+"lib/type_with_layout.cmx": for-pack(Sexplib)
+"lib/parser.cmx": for-pack(Sexplib)
+"lib/parser_with_layout.cmx": for-pack(Sexplib)
+"lib/lexer.cmx": for-pack(Sexplib)
+<lib/*.ml{,i,y}>: package(bigarray)
+# Library sexplib_num
+"num/lib/sexplib_num.cmxs": use_sexplib_num
+"num/lib/sexplib_num_conv.cmx": for-pack(Sexplib_num)
+"num/lib/std.cmx": for-pack(Sexplib_num)
+<num/lib/*.ml{,i,y}>: package(bigarray)
+<num/lib/*.ml{,i,y}>: package(num)
+<num/lib/*.ml{,i,y}>: use_sexplib
+# Library sexplib_unix
+"unix/lib/sexplib_unix.cmxs": use_sexplib_unix
+"unix/lib/sexplib_unix_conv.cmx": for-pack(Sexplib_unix)
+<unix/lib/*.ml{,i,y}>: package(bigarray)
+<unix/lib/*.ml{,i,y}>: package(unix)
+<unix/lib/*.ml{,i,y}>: use_sexplib
+# Library pa_sexp_conv
+"syntax/pa_sexp_conv.cmxs": use_pa_sexp_conv
+<syntax/*.ml{,i,y}>: package(camlp4.extend)
+<syntax/*.ml{,i,y}>: package(camlp4.quotations)
+<syntax/*.ml{,i,y}>: package(type_conv)
+# Library sexplib_top
+"top/sexplib_top.cmxs": use_sexplib_top
+# Executable sexp_test
+"syntax_test/sexp_test.byte": package(bigarray)
+"syntax_test/sexp_test.byte": use_sexplib
+# Executable conv_test
+"syntax_test/conv_test.byte": package(bigarray)
+"syntax_test/conv_test.byte": package(camlp4.extend)
+"syntax_test/conv_test.byte": package(camlp4.quotations)
+"syntax_test/conv_test.byte": package(num)
+"syntax_test/conv_test.byte": package(type_conv)
+"syntax_test/conv_test.byte": use_pa_sexp_conv
+"syntax_test/conv_test.byte": use_sexplib
+"syntax_test/conv_test.byte": use_sexplib_num
+<syntax_test/*.ml{,i,y}>: package(bigarray)
+<syntax_test/*.ml{,i,y}>: package(camlp4.extend)
+<syntax_test/*.ml{,i,y}>: package(camlp4.quotations)
+<syntax_test/*.ml{,i,y}>: package(num)
+<syntax_test/*.ml{,i,y}>: package(type_conv)
+<syntax_test/*.ml{,i,y}>: use_pa_sexp_conv
+<syntax_test/*.ml{,i,y}>: use_sexplib
+<syntax_test/*.ml{,i,y}>: use_sexplib_num
 # OASIS_STOP
 <lib/pre_sexp.ml>: pp(cpp -undef -traditional -Isyntax -w)
 <syntax_test/*.ml{,i}>: syntax_camlp4o
