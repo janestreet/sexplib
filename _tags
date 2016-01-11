@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: d4e37f356595ae68e93bb26c75232ab1)
+# DO NOT EDIT (digest: cbb8fcad7a18ce33ba591a9acda6d0e9)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -46,35 +46,8 @@ true: annot, bin_annot
 <unix/lib/*.ml{,i,y}>: package(bigarray)
 <unix/lib/*.ml{,i,y}>: package(unix)
 <unix/lib/*.ml{,i,y}>: use_sexplib
-# Library pa_sexp_conv
-"syntax/pa_sexp_conv.cmxs": use_pa_sexp_conv
-<syntax/*.ml{,i,y}>: package(camlp4.extend)
-<syntax/*.ml{,i,y}>: package(camlp4.quotations)
-<syntax/*.ml{,i,y}>: package(type_conv)
 # Library sexplib_top
 "top/sexplib_top.cmxs": use_sexplib_top
-# Executable sexp_test
-"syntax_test/sexp_test.byte": package(bigarray)
-"syntax_test/sexp_test.byte": use_sexplib
-# Executable conv_test
-"syntax_test/conv_test.byte": package(bigarray)
-"syntax_test/conv_test.byte": package(camlp4.extend)
-"syntax_test/conv_test.byte": package(camlp4.quotations)
-"syntax_test/conv_test.byte": package(num)
-"syntax_test/conv_test.byte": package(type_conv)
-"syntax_test/conv_test.byte": use_pa_sexp_conv
-"syntax_test/conv_test.byte": use_sexplib
-"syntax_test/conv_test.byte": use_sexplib_num
-<syntax_test/*.ml{,i,y}>: package(bigarray)
-<syntax_test/*.ml{,i,y}>: package(camlp4.extend)
-<syntax_test/*.ml{,i,y}>: package(camlp4.quotations)
-<syntax_test/*.ml{,i,y}>: package(num)
-<syntax_test/*.ml{,i,y}>: package(type_conv)
-<syntax_test/*.ml{,i,y}>: use_pa_sexp_conv
-<syntax_test/*.ml{,i,y}>: use_sexplib
-<syntax_test/*.ml{,i,y}>: use_sexplib_num
 # OASIS_STOP
 <lib/pre_sexp.ml>: pp(cpp -undef -traditional -Isyntax -w)
-<syntax_test/*.ml{,i}>: syntax_camlp4o
-<syntax/pa_sexp_conv.ml>: syntax_camlp4o
 "top/sexplib_install_printers.ml": I(+compiler-libs)

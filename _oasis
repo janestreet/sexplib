@@ -15,10 +15,6 @@ XStdFilesAUTHORS: false
 XStdFilesREADME:  false
 BuildTools:       ocamlbuild
 
-Flag syntax
-  Description: Build the syntax extension
-  Default: true
-
 Library sexplib
   Path:               lib
   FindlibName:        sexplib
@@ -56,20 +52,6 @@ Library sexplib_unix
   Modules:            Sexplib_unix_conv
   BuildDepends:       sexplib,unix
 
-Library pa_sexp_conv
-  Build$:             flag(syntax)
-  Install$:           flag(syntax)
-  Path:               syntax
-  FindlibName:        syntax
-  FindlibParent:      sexplib
-  Modules:            Pa_sexp_conv
-  BuildDepends:       camlp4.quotations,
-                      camlp4.extend,
-                      type_conv (>= 109.20.00)
-  XMETAType:          syntax
-  XMETARequires:      camlp4,type_conv,sexplib
-  XMETADescription:   Syntax extension for Sexplib
-
 Library sexplib_top
   Path:               top
   FindlibName:        top
@@ -77,27 +59,3 @@ Library sexplib_top
   Modules:            Sexplib_install_printers
   XMETARequires:      sexplib
   XMETADescription:   Toplevel printers for S-expressions
-
-Executable sexp_test
-  Path:               syntax_test
-  MainIs:             sexp_test.ml
-  Build$:             flag(syntax) && flag(tests)
-  Install:            false
-  BuildDepends:       sexplib
-
-Executable conv_test
-  Path:               syntax_test
-  MainIs:             conv_test.ml
-  Build$:             flag(syntax) && flag(tests)
-  Install:            false
-  BuildDepends:       sexplib, sexplib_num, sexplib.syntax
-
-Test sexp
-  Run$:               flag(syntax) && flag(tests)
-  Command:            $sexp_test < test.sexp
-  WorkingDirectory:   lib_test
-
-Test conv
-  Run$:               flag(syntax) && flag(tests)
-  Command:            $conv_test
-  WorkingDirectory:   lib_test

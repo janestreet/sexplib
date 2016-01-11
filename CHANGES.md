@@ -1,3 +1,7 @@
+## 113.00.01
+
+- Split off the camlp4 syntax extension
+
 ## 112.35.00
 
 - Inline some calls that js_of_ocaml was unable to recognise as

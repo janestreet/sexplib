@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: 948a88832b262535c7c476a76e7c721e) *)
+(* DO NOT EDIT (digest: 745b1416a193a0f81678d861324d10cf) *)
 module OASISGettext = struct
 (* # 22 "src/oasis/OASISGettext.ml" *)
 
@@ -612,17 +612,11 @@ let package_default =
           ("sexplib", ["lib"], []);
           ("sexplib_num", ["num/lib"], []);
           ("sexplib_unix", ["unix/lib"], []);
-          ("pa_sexp_conv", ["syntax"], []);
           ("sexplib_top", ["top"], [])
        ];
      lib_c = [];
      flags = [];
-     includes =
-       [
-          ("unix/lib", ["lib"]);
-          ("syntax_test", ["lib"; "num/lib"; "syntax"]);
-          ("num/lib", ["lib"])
-       ]
+     includes = [("unix/lib", ["lib"]); ("num/lib", ["lib"])]
   }
   ;;
 
@@ -630,24 +624,12 @@ let conf = {MyOCamlbuildFindlib.no_automatic_syntax = false}
 
 let dispatch_default = MyOCamlbuildBase.dispatch_default conf package_default;;
 
-# 634 "myocamlbuild.ml"
+# 628 "myocamlbuild.ml"
 (* OASIS_STOP *)
 
 let dispatch = function
   | After_rules ->
-    pflag ["ocaml"; "compile"] "I" (fun x -> S [A "-I"; A x]);
-    flag ["ocamldep"; "ocaml"; "use_pa_sexp_conv"]
-      (S [A "-ppopt"; P "syntax/pa_sexp_conv.cma"]);
-    flag ["compile"; "ocaml"; "use_pa_sexp_conv"]
-      (S [A "-ppopt"; P "syntax/pa_sexp_conv.cma"]);
-
-    let env = BaseEnvLight.load () in
-    let ver = BaseEnvLight.var_get "ocaml_version" env in
-    let ver = Scanf.sscanf ver "%d.%d" (fun major minor -> (major, minor)) in
-    if ver >= (4, 02) then begin
-      flag ["ocaml"; "compile"; "use_macro"] & S[A"-ppopt"; A "-DOCAML_4_02"];
-      flag ["ocaml"; "ocamldep"; "use_macro"] & S[A"-ppopt"; A "-DOCAML_4_02"];
-    end
+    pflag ["ocaml"; "compile"] "I" (fun x -> S [A "-I"; A x])
   | _ ->
     ()
 
