@@ -7,7 +7,7 @@ module type Load = sig
   val load_sexps_conv    : string -> (Sexp.t -> 'a) -> 'a Sexp.Annotated.conv list
 end
 
-exception E of [ `Expected of Sexp.t ] * [ `Got of Sexp.t ] with sexp
+exception E of [ `Expected of Sexp.t ] * [ `Got of Sexp.t ] [@@deriving sexp]
 
 let () =
   Printexc.register_printer (fun exc ->
@@ -82,7 +82,7 @@ module Make (Load : Load) = struct
   type try_parse_string = string
   let sexp_of_try_parse_string str =
     try Sexp.of_string str with _ -> sexp_of_string str
-  exception Wrong_error of exn * [ `Expected_to_contain of try_parse_string ] with sexp
+  exception Wrong_error of exn * [ `Expected_to_contain of try_parse_string ] [@@deriving sexp]
 
   let check_error ?f ~expect files =
     with_files files ~f:(fun dir ->
@@ -122,7 +122,7 @@ module Make (Load : Load) = struct
         failwith
           (sprintf "Expected %d errors, got %d." expected_count actual_count))
 
-  TEST_UNIT "simple" =
+  let%test_unit "simple" =
     check
       [ "input.sexp"
       , "(:include defs.sexp)
@@ -141,7 +141,7 @@ module Make (Load : Load) = struct
        (field2 (0001 0002 0003 0004 0005))
        (field3 ayzyz))"
 
- TEST_UNIT "include chain with subdirectories" =
+ let%test_unit "include chain with subdirectories" =
     check
       [ "input.sexp"
       , "(:include include/a.sexp)"
@@ -154,7 +154,7 @@ module Make (Load : Load) = struct
 
       "(this is include/b)"
 
-  TEST_UNIT "hello world" =
+  let%test_unit "hello world" =
     check
       [ "input.sexp"
       , "(:include defs.sexp)
@@ -170,7 +170,7 @@ module Make (Load : Load) = struct
 
       "\"hello world\""
 
-  TEST_UNIT "nested let" =
+  let%test_unit "nested let" =
     check
       [ "input.sexp"
       , "(:let f (x)
@@ -180,7 +180,7 @@ module Make (Load : Load) = struct
          (:concat (:use f (x x)))" ]
       "xxxx"
 
-  TEST_UNIT "argument list scoping" =
+  let%test_unit "argument list scoping" =
     check
       [ "input.sexp"
       , "(:let a () a)
@@ -189,14 +189,14 @@ module Make (Load : Load) = struct
          (:use f (b (:use a)) (a (:use b)))" ]
       "ab"
 
-  TEST_UNIT "empty argument" =
+  let%test_unit "empty argument" =
     check
       [ "input.sexp"
       , "(:let f (x) (:use x) bla)
          (:use f (x))" ]
       "bla"
 
-  TEST_UNIT =
+  let%test_unit _ =
     check_error
       [ "input.sexp"
       , "(:include include.sexp)"
@@ -209,7 +209,7 @@ module Make (Load : Load) = struct
           (Failure \"Error evaluating macros: Atom expected\"))
          ())"]
 
-  TEST_UNIT =
+  let%test_unit _ =
     check_error
       [ "input.sexp"
       , "(:include include.sexp)"
@@ -222,7 +222,7 @@ module Make (Load : Load) = struct
           (Failure \"Error evaluating macros: Atom list expected\"))
          x)"]
 
-  TEST_UNIT =
+  let%test_unit _ =
     check_error
       [ "input.sexp"
       , "(:include include.sexp)"
@@ -235,7 +235,7 @@ module Make (Load : Load) = struct
           (Failure \"Error evaluating macros: Unexpected :use\"))
          :use)"]
 
-  TEST_UNIT =
+  let%test_unit _ =
     check_error
       [ "input.sexp"
       , "(:include include.sexp)"
@@ -249,7 +249,7 @@ module Make (Load : Load) = struct
           (Failure \"Error evaluating macros: Malformed argument\"))
          (()))"]
 
-  TEST_UNIT =
+  let%test_unit _ =
     check_error
       [ "input.sexp"
       , "(:include include.sexp)"
@@ -263,7 +263,7 @@ module Make (Load : Load) = struct
           (Failure \"Error evaluating macros: Formal args of f differ from supplied args, formal args are [x]\"))
          (:use f (y x)))"]
 
-  TEST_UNIT =
+  let%test_unit _ =
     check_error
       [ "input.sexp"
       , "(:let f (a) body of f)
@@ -274,7 +274,7 @@ module Make (Load : Load) = struct
           (Failure \"Error evaluating macros: Unused variables: a\"))
         (:let f (a) body of f))"]
 
-  TEST_UNIT =
+  let%test_unit _ =
     check_error
       [ "input.sexp"
       , "(:let f (a a) (:concat (:use a) (:use a)))
@@ -285,7 +285,7 @@ module Make (Load : Load) = struct
           (Failure \"Error evaluating macros: Duplicated let argument: a\"))
         (:let f (a a) (:concat (:use a) (:use a))))"]
 
-  TEST_UNIT =
+  let%test_unit _ =
     check_error
       [ "input.sexp"
       , "(:include include.sexp)
@@ -301,7 +301,7 @@ module Make (Load : Load) = struct
                 (Failure \"Error evaluating macros: Undeclared arguments in let: y\"))
                 (:let f (x) ((:use x) (:use y))))"]
 
-  TEST_UNIT =
+  let%test_unit _ =
     check_error
       [ "input.sexp"
       , "(:let x () x)
@@ -316,7 +316,7 @@ module Make (Load : Load) = struct
             \"Error evaluating macros: Undefined variable (included files cannot reference variables from outside)\"))
         x)"]
 
-  TEST_UNIT ":include can cause variable capture" =
+  let%test_unit ":include can cause variable capture" =
     check
       [ "input.sexp"
       , "(:let x () 2)
@@ -327,7 +327,7 @@ module Make (Load : Load) = struct
       , "(:let x () 1)" ]
       "1"
 
-  TEST_UNIT =
+  let%test_unit _ =
     check_error
       [ "input.sexp"
       , "(:concat (a b))" ]
@@ -337,7 +337,7 @@ module Make (Load : Load) = struct
             (Failure \"Error evaluating macros: Malformed concat application: (:concat(a b))\"))
           (:concat (a b)))"]
 
-  TEST_UNIT =
+  let%test_unit _ =
     check_error
       [ "input.sexp"
       , "(:include include.sexp)
@@ -352,7 +352,7 @@ module Make (Load : Load) = struct
             (Failure \"Error evaluating macros: Malformed concat application: (:concat())\"))
           (:concat (:use a)))"]
 
-  TEST_UNIT "correct error location in a nested let" =
+  let%test_unit "correct error location in a nested let" =
     check_error
       [ "input.sexp"
       , "(:let f ()
@@ -365,7 +365,7 @@ module Make (Load : Load) = struct
              (Failure \"Error evaluating macros: Unexpected :let\"))
              :let)"]
 
-  TEST_UNIT "correct location with chains of includes" =
+  let%test_unit "correct location with chains of includes" =
     check_error
       [ "input.sexp"
       , "(:include a)"
@@ -381,7 +381,7 @@ module Make (Load : Load) = struct
           (Failure \"Error evaluating macros: Unexpected :concat\"))
         :concat)"]
 
-  TEST_UNIT =
+  let%test_unit _ =
     check_error
       [ "input.sexp"
       , "\n(:let f ())" ]
@@ -397,7 +397,7 @@ module Make (Load : Load) = struct
     | Sexp.Atom _ -> ()
     | Sexp.List ts -> List.iter conv_error ts
 
-  TEST_UNIT "error location for conversion errors" =
+  let%test_unit "error location for conversion errors" =
     check_error ~f:conv_error
       [ "input.sexp"
       , "(:include include.sexp)"
@@ -410,7 +410,7 @@ module Make (Load : Load) = struct
                 \"Exit\")
                 (trigger (:use err)) (expanded (trigger error)))"]
 
-  TEST_UNIT "multiple conversion errors" =
+  let%test_unit "multiple conversion errors" =
     check_error_count ~f:conv_error ~expected_count:2
       [ "input.sexp"
       , "(:include include.sexp) (:include include.sexp)"
@@ -419,7 +419,7 @@ module Make (Load : Load) = struct
       , "(:let err () error)
          (foo bar (trigger (:use err)))" ]
 
-  TEST_UNIT =
+  let%test_unit _ =
     check_error
       [ "input.sexp"
       , "(:include include.sexp)"
@@ -435,7 +435,7 @@ module Make (Load : Load) = struct
   (* what stops this loop is that the filenames become too long. We have to rewrite the
      error messages since the exact number of "./" in the path depends on the limit on
      path length. *)
-  TEST_UNIT "sneaky include loop" =
+  let%test_unit "sneaky include loop" =
     check_error
       [ "input.sexp"
       , "(:include include.sexp)"
@@ -444,7 +444,7 @@ module Make (Load : Load) = struct
       , "(:include ././include.sexp)" ]
       ~expect:["DIR/include.sexp"; "File name too long"]
 
-  TEST_UNIT "parsing error 1" =
+  let%test_unit "parsing error 1" =
     check_error
       [ "input.sexp"
       , "(:include include.sexp) ()"
@@ -453,7 +453,7 @@ module Make (Load : Load) = struct
       , ")" ]
       ~expect:["DIR/include.sexp"; "unexpected character: ')'"]
 
-  TEST_UNIT "parsing error 2" =
+  let%test_unit "parsing error 2" =
     check_error
       [ "input.sexp"
       , "(:include include.sexp) ()"
@@ -465,7 +465,7 @@ end
 
 module M = Make (Macro)
 
-TEST_UNIT =
+let%test_unit _ =
   match Macro.expand_local_macros [Sexp.of_string "(:use x)"] with
   | `Result _ -> assert false
   | `Error (e, _) ->

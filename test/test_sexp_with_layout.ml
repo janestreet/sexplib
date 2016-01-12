@@ -4,7 +4,7 @@ open Sexplib
 
 module M = Sexp.With_layout
 
-TEST_MODULE "forget" = struct
+let%test_module "forget" = (module struct
 
   (* dummies *)
   let dumb_pos = {M.row = 0; col = 0}
@@ -25,11 +25,11 @@ TEST_MODULE "forget" = struct
   let b4 = Sexp.List [b2; b3; b3]
   let b5 = Sexp.List [b2; b3; b4]
 
-  TEST = M.Forget.t_or_comment a1 = None
-  TEST = M.Forget.t_or_comment a2 = Some b2
-  TEST = M.Forget.t_or_comment a3 = Some b3
-  TEST = M.Forget.t_or_comment a4 = Some b4
-  TEST = M.Forget.t_or_comment a5 = Some b5
+  let%test _ = M.Forget.t_or_comment a1 = None
+  let%test _ = M.Forget.t_or_comment a2 = Some b2
+  let%test _ = M.Forget.t_or_comment a3 = Some b3
+  let%test _ = M.Forget.t_or_comment a4 = Some b4
+  let%test _ = M.Forget.t_or_comment a5 = Some b5
 
   module Simple_forget = struct
     let rec t = function
@@ -48,11 +48,11 @@ TEST_MODULE "forget" = struct
 
   let same_as_simple x = M.Forget.t_or_comment x = Simple_forget.t_or_comment x
 
-  TEST = same_as_simple a1
-  TEST = same_as_simple a2
-  TEST = same_as_simple a3
-  TEST = same_as_simple a4
-  TEST = same_as_simple a5
+  let%test _ = same_as_simple a1
+  let%test _ = same_as_simple a2
+  let%test _ = same_as_simple a3
+  let%test _ = same_as_simple a4
+  let%test _ = same_as_simple a5
 
-end
+end)
 

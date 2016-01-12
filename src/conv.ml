@@ -4,6 +4,8 @@ open Printf
 open Bigarray
 open Sexp
 
+module String = Bytes
+
 type sexp_bool = bool
 type 'a sexp_option = 'a option
 type 'a sexp_list = 'a list
@@ -237,6 +239,16 @@ let sexp_of_exn exn =
 
 let exn_to_string e = Sexp.to_string_hum (sexp_of_exn e)
 
+(* {[exception Blah [@@deriving sexp]]} generates a call to the function
+   [Exn_converter.add_auto] defined in this file.  So we are guaranted that as soon as we
+   mark an exception as sexpable, this module will be linked in and this printer will be
+   registered, which is what we want. *)
+let () =
+  Printexc.register_printer (fun exn ->
+    match sexp_of_exn_opt exn with
+    | None -> None
+    | Some sexp ->
+      Some (Sexp.to_string_hum ~indent:2 sexp))
 
 (* Conversion of S-expressions to OCaml-values *)
 
@@ -305,7 +317,7 @@ let nativeint_of_sexp sexp = match sexp with
   | List _ -> of_sexp_error "nativeint_of_sexp: atom needed" sexp
 
 let ref_of_sexp a__of_sexp sexp = ref (a__of_sexp sexp)
-let lazy_t_of_sexp a__of_sexp sexp = Lazy.lazy_from_val (a__of_sexp sexp)
+let lazy_t_of_sexp a__of_sexp sexp = Lazy.from_val (a__of_sexp sexp)
 
 let option_of_sexp a__of_sexp sexp =
   if !read_old_option_format then
@@ -353,7 +365,7 @@ let array_of_sexp a__of_sexp sexp = match sexp with
   | List [] -> [||]
   | List (h :: t) ->
       let len = List.length t + 1 in
-      let res = Array.create len (a__of_sexp h) in
+      let res = Array.make len (a__of_sexp h) in
       let rec loop i = function
         | [] -> res
         | h :: t -> res.(i) <- a__of_sexp h; loop (i + 1) t in

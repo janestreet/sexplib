@@ -4,6 +4,8 @@ open Format
 
 open Sexp
 
+module String = Bytes
+
 type el = Pos of int | Match of string * int | Rec of string
 type t = el list
 

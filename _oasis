@@ -1,11 +1,11 @@
 OASISFormat:      0.4
-OCamlVersion:     >= 4.00.0
+OCamlVersion:     >= 4.02.3
 FindlibVersion:   >= 1.3.2
 Name:             sexplib
-Version:          113.00.00
-Synopsis:         sexplib - automated S-expression conversion
+Version:          113.24.00
+Synopsis:         Library for serializing OCaml values to and from S-expressions
 Authors:          Jane Street Group, LLC <opensource@janestreet.com>
-Copyrights:       (C) 2005-2013 Jane Street Group LLC <opensource@janestreet.com>
+Copyrights:       (C) 2005-2016 Jane Street Group LLC <opensource@janestreet.com>
 Maintainers:      Jane Street Group, LLC <opensource@janestreet.com>
 License:          Apache-2.0
 LicenseFile:      LICENSE.txt
@@ -14,90 +14,45 @@ Plugins:          StdFiles (0.3), DevFiles (0.3), META (0.3)
 XStdFilesAUTHORS: false
 XStdFilesREADME:  false
 BuildTools:       ocamlbuild
-
-Flag syntax
-  Description: Build the syntax extension
-  Default: true
+FilesAB:          META.ab
+Description:
+  Part of Jane Street’s Core library
+  The Core suite of libraries is an industrial strength alternative to
+  OCaml's standard library that was developed by Jane Street, the
+  largest industrial user of OCaml.
 
 Library sexplib
-  Path:               lib
-  FindlibName:        sexplib
-  Pack:               true
-  Modules:            Conv,
-                      Conv_error,
-                      Exn_magic,
-                      Macro,
-                      Path,
-                      Pre_sexp,
-                      Sexp,
-                      Sexp_intf,
-                      Sexp_with_layout,
-                      Src_pos,
-                      Std,
-                      Type,
-                      Type_with_layout,
-                      Parser,
-                      Parser_with_layout,
-                      Lexer
-  BuildDepends:       bigarray
+  Path:         src
+  Pack:         true
+  Modules:      Conv,
+                Conv_error,
+                Exn_magic,
+                Lexer,
+                Macro,
+                Parser,
+                Parser_with_layout,
+                Path,
+                Pre_sexp,
+                Sexp,
+                Sexp_intf,
+                Sexp_with_layout,
+                Src_pos,
+                Std,
+                Type,
+                Type_with_layout
+  BuildDepends: bigarray
 
 Library sexplib_num
-  Path:               num/lib
-  FindlibName:        sexplib_num
-  Pack:               true
-  Modules:            Sexplib_num_conv,
-                      Std
-  BuildDepends:       sexplib,num
+  Path:         num/lib
+  Pack:         true
+  Modules:      Sexplib_num_conv,
+                Std
+  BuildDepends: num,
+                sexplib
 
 Library sexplib_unix
-  Path:               unix/lib
-  FindlibName:        sexplib_unix
-  Pack:               true
-  Modules:            Sexplib_unix_conv
-  BuildDepends:       sexplib,unix
-
-Library pa_sexp_conv
-  Build$:             flag(syntax)
-  Install$:           flag(syntax)
-  Path:               syntax
-  FindlibName:        syntax
-  FindlibParent:      sexplib
-  Modules:            Pa_sexp_conv
-  BuildDepends:       camlp4.quotations,
-                      camlp4.extend,
-                      type_conv (>= 109.20.00)
-  XMETAType:          syntax
-  XMETARequires:      camlp4,type_conv,sexplib
-  XMETADescription:   Syntax extension for Sexplib
-
-Library sexplib_top
-  Path:               top
-  FindlibName:        top
-  FindlibParent:      sexplib
-  Modules:            Sexplib_install_printers
-  XMETARequires:      sexplib
-  XMETADescription:   Toplevel printers for S-expressions
-
-Executable sexp_test
-  Path:               syntax_test
-  MainIs:             sexp_test.ml
-  Build$:             flag(syntax) && flag(tests)
-  Install:            false
-  BuildDepends:       sexplib
-
-Executable conv_test
-  Path:               syntax_test
-  MainIs:             conv_test.ml
-  Build$:             flag(syntax) && flag(tests)
-  Install:            false
-  BuildDepends:       sexplib, sexplib_num, sexplib.syntax
-
-Test sexp
-  Run$:               flag(syntax) && flag(tests)
-  Command:            $sexp_test < test.sexp
-  WorkingDirectory:   lib_test
-
-Test conv
-  Run$:               flag(syntax) && flag(tests)
-  Command:            $conv_test
-  WorkingDirectory:   lib_test
+  Path:         unix/lib
+  Pack:         true
+  Modules:      Sexplib_unix_conv
+  BuildDepends: sexplib,
+                unix

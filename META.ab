@@ -1,0 +1,27 @@
+version = "$(pkg_version)"
+description = "Library for serializing OCaml values to and from S-expressions"
+requires = "bigarray"
+archive(byte          ) = "sexplib.cma"
+archive(native        ) = "sexplib.cmxa"
+archive(native, plugin) = "sexplib.cmxs"
+exists_if = "sexplib.cma"
+
+package "num" (
+  version = "$(pkg_version)"
+  description = ""
+  requires = "num sexplib"
+  archive(byte          ) = "sexplib_num.cma"
+  archive(native        ) = "sexplib_num.cmxa"
+  archive(native, plugin) = "sexplib_num.cmxs"
+  exists_if = "sexplib_num.cma"
+)
+
+package "unix" (
+  version = "$(pkg_version)"
+  description = ""
+  requires = "sexplib unix"
+  archive(byte          ) = "sexplib_unix.cma"
+  archive(native        ) = "sexplib_unix.cmxa"
+  archive(native, plugin) = "sexplib_unix.cmxs"
+  exists_if = "sexplib_unix.cma"
+)

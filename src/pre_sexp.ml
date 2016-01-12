@@ -3,6 +3,8 @@
 open Format
 open Bigarray
 
+module String = Bytes
+
 include Type
 
 exception Of_sexp_error of exn * t
@@ -142,7 +144,8 @@ let size sexp = size_loop (0, 0) sexp
 (* Buffer conversions *)
 
 let to_buffer_hum ~buf ?(indent = !default_indent) sexp =
-  Format.bprintf buf "%a@?" (pp_hum_indent indent) sexp
+  let ppf = Format.formatter_of_buffer buf in
+  Format.fprintf ppf "%a@?" (pp_hum_indent indent) sexp
 
 let to_buffer_mach ~buf sexp =
   let rec loop may_need_space = function

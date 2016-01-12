@@ -1,3 +1,7 @@
+## 113.24.00
+
+- Switch code in `lib` subdir to ppx-style.
+
 ## 112.35.00
 
 - Inline some calls that js_of_ocaml was unable to recognise as

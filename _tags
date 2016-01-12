@@ -1,6 +1,10 @@
+<**/*.ml{,i}>: warn(-40), no_alias_deps
+<**/*>: thread
+# This prevents the implicit addition of -ppx options by ocamlfind
+<**/*.ml{,i}>: predicate(ppx_driver)
+<src/*.ml>: for-pack(Sexplib)
+<num/lib/*.ml>: for-pack(Sexplib_num)
+<unix/lib/*.ml>: for-pack(Sexplib_unix)
+<src/pre_sexp.ml>: pp(cpp -undef -traditional -Isyntax -w)
 # OASIS_START
 # OASIS_STOP
-<lib/pre_sexp.ml>: pp(cpp -undef -traditional -Isyntax -w)
-<syntax_test/*.ml{,i}>: syntax_camlp4o
-<syntax/pa_sexp_conv.ml>: syntax_camlp4o
-"top/sexplib_install_printers.ml": I(+compiler-libs)

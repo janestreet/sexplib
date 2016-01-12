@@ -572,11 +572,11 @@ module type S = sig
   val unit : t
   (** [unit] the unit-value as expressed by an S-expression. *)
 
-  external sexp_of_t : t -> t = "%identity"
+  val sexp_of_t : t -> t
   (** [sexp_of_t sexp] maps S-expressions which are part of a type with
       automated S-expression conversion to themselves. *)
 
-  external t_of_sexp : t -> t = "%identity"
+  val t_of_sexp : t -> t
   (** [t_of_sexp sexp] maps S-expressions which are part of a type with
       automated S-expression conversion to themselves. *)
 

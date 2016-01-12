@@ -11,7 +11,7 @@ The original license of "Tywith" can be found in the file "LICENSE-Tywith.txt".
 
 The following company has sponsored and has copyright in part of this work:
 
-  Jane Street Group, LLC
+  Jane Street Holding, LLC
   1 New York Plaza, 33rd Floor 
   New York, NY 10004
   USA
