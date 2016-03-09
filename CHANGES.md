@@ -1,3 +1,43 @@
+## 113.33.00
+
+- Changes `Sexp.to_string` to escape all non-ASCII characters.
+
+  Previously chars >= 127 are escaped or not depending on:
+  1. other character in the string
+  2. the system
+  3. environment variable settings
+
+  (2) and (3) are because `String.escaped` from the stdlib uses the C
+  function `isprint` which is locale and OS dependent.
+
+  This can cause invalid UTF-8 sequence to be printed by sexplib, which
+  is annoying:
+
+    https://github.com/janestreet/sexplib/issues/18
+
+  Starting with this release, sexplib:
+  1. copies the `String.escaped` function of OCaml 4.03 which escapes
+     all non-ascii characters
+  2. make sure we escape the string when it contains characters >= 127
+
+- Clean up the documentation for sexplib, modernizing it to include
+  `ppx_sexp_conv`, and breaking up the documentation between sexplib and
+  `ppx_sexp_conv`.  Also changed the formatting to use org-mode, so it
+  will render properly on github.  Markdown doesn't render well by
+  default, unless you use quite different conventions about linebeaks.
+
+- In sexp macro library, avoid returning success when there is any error
+  reading a sexp. In particular, this prevents
+
+    sexp resolve <(echo '(:use x)')
+
+  from silently succeeding.
+
+  Also, now we no longer read an included file multiple times.
+  This lets even crazy stuff like this to work:
+
+    $ echo 'hi ' | sexp resolve <(echo '((:include /dev/stdin) (:include /dev/stdin))')
+
 ## 113.24.00
 
 - Switch code in `lib` subdir to ppx-style.

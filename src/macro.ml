@@ -59,6 +59,8 @@ module List = struct
       | Some x -> Some x
       | None -> find_map ~f xs
 
+  let exists ~f xs = List.exists f xs
+
   let rec find_a_dup = function
     | [] -> None
     | x :: xs ->
@@ -254,10 +256,14 @@ module Loader (S : Sexp_loader) = struct
     let rec load visited file =
       if List.mem file visited
       then raise (Include_loop_detected file);
-      S.load_sexps file
-      >>= fun ts ->
-      file_contents := (file, ts) :: !file_contents;
-      M.List.iter ts ~f:(load_includes (file :: visited) file)
+      if List.mem file (List.map ~f:fst !file_contents)
+      then M.return ()
+      else begin
+        S.load_sexps file
+        >>= fun ts ->
+        file_contents := (file, ts) :: !file_contents;
+        M.List.iter ts ~f:(load_includes (file :: visited) file)
+      end
     and load_includes visited file = function
       | Sexp.List [Sexp.Atom ":include"; Sexp.Atom include_file] ->
         let include_file = make_absolute_path ~with_respect_to:file include_file in
@@ -365,12 +371,23 @@ module Loader (S : Sexp_loader) = struct
     load_all_includes file
     >>= fun file_contents ->
     try M.return (expand_and_convert ~multiple (`Fast file_contents) file f)
-    with Of_sexp_error _ ->
+    with Of_sexp_error _ as original_exn ->
       begin
         load_all_annotated_includes file_contents
         >>= fun annotated_file_contents ->
-        M.return (expand_and_convert
-                    ~multiple (`Find_error annotated_file_contents) file f);
+        let result =
+          (expand_and_convert
+             ~multiple (`Find_error annotated_file_contents) file f)
+        in
+        if List.exists result ~f:(function
+          | `Result _ -> false
+          | `Error _ -> true)
+        then
+          M.return result
+        else
+          (* Avoid returning success in the case there was an error.
+             This can be bad e.g. when reading the input from a pipe. *)
+          raise original_exn
       end
 
   let load_sexps_conv file f = load ~multiple:true file f

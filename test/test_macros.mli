@@ -1,5 +1,4 @@
 open Sexplib
-open Sexplib.Conv
 
 module type Load = sig
   val load_sexp_conv_exn : string -> (Sexp.t -> 'a) -> 'a
