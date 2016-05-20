@@ -1,3 +1,15 @@
+## 113.43.00
+
+- Sexps and EOF are a mess. Try to improve the situation somewhat!
+
+  In particular, this feature makes improvements to when
+  `Parsing_whitespace` sexp parser state is reported: it now
+  distinguishes the case `Parsing_toplevel_whitespace` from
+  `Parsing_nested_whitespace` and it's only a valid empty parse if
+  `eof` happens in `Parsing_toplevel_whitespace`. See test diffs for
+  examples of strings that were previously valid empty parses, but are
+  now incomplete. One of the craziest is probably "(foo #| bar".
+
 ## 113.33.00
 
 - Changes `Sexp.to_string` to escape all non-ASCII characters.
@@ -587,4 +599,3 @@ Major release.
 ## 2005-11-07
 
 - Initial release.
-
