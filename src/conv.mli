@@ -327,8 +327,8 @@ val sexp_of_exn_opt : exn -> Sexp.t option
 module Exn_converter : sig
   type t  (** Type of handles for exception S-expression converters *)
 
-  val set_max_exn_tags : int -> unit [@@ocaml.deprecated]
-  val get_max_exn_tags : unit -> int [@@ocaml.deprecated]
+  val set_max_exn_tags : int -> unit [@@deprecated]
+  val get_max_exn_tags : unit -> int [@@deprecated]
 
   val add_auto : ?finalise : bool -> exn -> (exn -> Sexp.t) -> unit
   (** [add_auto ?finalise templ sexp_of_exn] registers exception S-expression

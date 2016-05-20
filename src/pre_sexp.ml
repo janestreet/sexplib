@@ -445,14 +445,16 @@ end
 
 module Cont_state = struct
   type t =
-    | Parsing_whitespace
+    | Parsing_toplevel_whitespace
+    | Parsing_nested_whitespace
     | Parsing_atom
     | Parsing_list
     | Parsing_sexp_comment
     | Parsing_block_comment
 
   let to_string = function
-    | Parsing_whitespace -> "Parsing_whitespace"
+    | Parsing_toplevel_whitespace -> "Parsing_toplevel_whitespace"
+    | Parsing_nested_whitespace -> "Parsing_nested_whitespace"
     | Parsing_atom -> "Parsing_atom"
     | Parsing_list -> "Parsing_list"
     | Parsing_sexp_comment -> "Parsing_sexp_comment"
@@ -536,6 +538,21 @@ let mk_cont_parser cont_parse = (); fun _state str ~max_pos ~pos ->
   cont_parse ~pos ~len str
 
 
+module Safe_empty_parse = struct
+  (* A type indicating whether [eof] in a certain parser state should result in valid
+     parse of empty sexp list.
+
+     [True] means that it should be considered a valid empty parse,
+     [False] means that it should be considered an incomplete parse,
+     [Should_not_be_empty] means that this state will guarantee [pstack] or [pbuf]
+     are non-empty, so it's incomplete parse anyway.
+  *)
+  type t =
+    | True
+    | False
+    | Should_not_be_empty
+end
+
 (* Macro for generating parsers *)
 #define MK_PARSER( \
     TYPE, GET_LEN, PARSE, GET_CHAR, \
@@ -577,17 +594,23 @@ let mk_cont_parser cont_parse = (); fun _state str ~max_pos ~pos ->
     in \
     Cont (cont_state, parse_fun) \
   \
-  let mk_cont name cont state = \
+  let mk_cont name ~(eof_safe : Safe_empty_parse.t) cont state = \
     let cont_state = \
       match GET_PSTACK = [], Buffer.length state.pbuf = 0 with \
-      | true, true -> Cont_state.Parsing_whitespace \
+      | true, true -> \
+        begin match eof_safe with \
+        | True -> Cont_state.Parsing_toplevel_whitespace \
+        | False -> Cont_state.Parsing_nested_whitespace \
+        | Should_not_be_empty -> \
+          failwith ("should never be parsing whitespace in "^ name) \
+        end \
       | false, true -> Cont_state.Parsing_list \
       | _, false -> Cont_state.Parsing_atom \
     in \
     mk_cont_state name cont state ~cont_state \
   \
   let rec PARSE state str ~max_pos ~pos = \
-    if pos > max_pos then mk_cont "parse" PARSE state \
+    if pos > max_pos then mk_cont "parse" ~eof_safe:True PARSE state \
     else \
       match GET_CHAR with \
       | '(' -> \
@@ -627,14 +650,14 @@ let mk_cont_parser cont_parse = (); fun _state str ~max_pos ~pos ->
           add_bump_pos state str ~max_pos ~pos c parse \
   \
   and parse_nl state str ~max_pos ~pos = \
-    if pos > max_pos then mk_cont "parse_nl" parse_nl state \
+    if pos > max_pos then mk_cont "parse_nl" ~eof_safe:False parse_nl state \
     else \
       let c = GET_CHAR in \
       if c = '\010' then bump_line_cont state str ~max_pos ~pos PARSE \
       else raise_unexpected_char (MK_PARSE_STATE state) "parse_nl" pos c \
   \
   and parse_comment state str ~max_pos ~pos = \
-    if pos > max_pos then mk_cont "parse_comment" parse_comment state \
+    if pos > max_pos then mk_cont "parse_comment" ~eof_safe:True parse_comment state \
     else \
       match GET_CHAR with \
       | '\010' -> bump_line_cont state str ~max_pos ~pos PARSE \
@@ -643,7 +666,7 @@ let mk_cont_parser cont_parse = (); fun _state str ~max_pos ~pos ->
   \
   and maybe_parse_comment state str ~max_pos ~pos = \
     if pos > max_pos then \
-      mk_cont "maybe_parse_comment" maybe_parse_comment state \
+      mk_cont "maybe_parse_comment" ~eof_safe:Should_not_be_empty maybe_parse_comment state \
     else \
       match GET_CHAR with \
       | ';' -> bump_pos_cont state str ~max_pos ~pos parse_sexp_comment \
@@ -652,7 +675,7 @@ let mk_cont_parser cont_parse = (); fun _state str ~max_pos ~pos ->
   \
   and maybe_parse_close_comment state str ~max_pos ~pos = \
     if pos > max_pos then \
-      mk_cont "maybe_parse_close_comment" maybe_parse_close_comment state \
+      mk_cont "maybe_parse_close_comment" ~eof_safe:Should_not_be_empty maybe_parse_close_comment state \
     else \
       if GET_CHAR <> '#' then parse_atom state str ~max_pos ~pos \
       else \
@@ -692,7 +715,7 @@ let mk_cont_parser cont_parse = (); fun _state str ~max_pos ~pos ->
     let rec loop depth state str ~max_pos ~pos = \
       let rec parse_block_depth state str ~max_pos ~pos = \
         if pos > max_pos then \
-          mk_cont "parse_block_depth" parse_block_depth state \
+          mk_cont "parse_block_depth" ~eof_safe:False parse_block_depth state \
         else \
           match GET_CHAR with \
           | '\010' -> bump_line_cont state str ~max_pos ~pos parse_block_depth \
@@ -717,14 +740,14 @@ let mk_cont_parser cont_parse = (); fun _state str ~max_pos ~pos ->
           | _ -> bump_pos_cont state str ~max_pos ~pos parse_block_depth \
       and parse_open_block state str ~max_pos ~pos = \
         if pos > max_pos then \
-          mk_cont "parse_open_block" parse_open_block state \
+          mk_cont "parse_open_block" ~eof_safe:False parse_open_block state \
         else \
           if GET_CHAR = '|' then \
             bump_pos_cont state str ~max_pos ~pos (loop (depth + 1)) \
           else parse_block_depth state str ~max_pos ~pos \
       and parse_close_block state str ~max_pos ~pos = \
         if pos > max_pos then \
-          mk_cont "parse_close_block" parse_close_block state \
+          mk_cont "parse_close_block" ~eof_safe:False parse_close_block state \
         else if GET_CHAR = '#' then \
           let parse = \
             if depth = 1 then \
@@ -742,7 +765,7 @@ let mk_cont_parser cont_parse = (); fun _state str ~max_pos ~pos ->
     loop 1 state str ~max_pos ~pos \
   \
   and parse_atom state str ~max_pos ~pos = \
-    if pos > max_pos then mk_cont "parse_atom" parse_atom state \
+    if pos > max_pos then mk_cont "parse_atom" ~eof_safe:Should_not_be_empty parse_atom state \
     else \
       match GET_CHAR with \
       | ' ' | '\009' | '\012' -> \
@@ -798,7 +821,8 @@ let mk_cont_parser cont_parse = (); fun _state str ~max_pos ~pos ->
   \
   and maybe_parse_bad_atom_pipe state str ~max_pos ~pos = \
     if pos > max_pos then \
-      mk_cont "maybe_parse_bad_atom_pipe" maybe_parse_bad_atom_pipe state \
+      mk_cont "maybe_parse_bad_atom_pipe" \
+        ~eof_safe:Should_not_be_empty maybe_parse_bad_atom_pipe state \
     else \
       match GET_CHAR with \
       | '#' -> \
@@ -809,7 +833,8 @@ let mk_cont_parser cont_parse = (); fun _state str ~max_pos ~pos ->
   \
   and maybe_parse_bad_atom_hash state str ~max_pos ~pos = \
     if pos > max_pos then \
-      mk_cont "maybe_parse_bad_atom_hash" maybe_parse_bad_atom_hash state \
+      mk_cont "maybe_parse_bad_atom_hash" \
+        ~eof_safe:Should_not_be_empty maybe_parse_bad_atom_hash state \
     else \
       match GET_CHAR with \
       | '|' -> \
@@ -823,7 +848,7 @@ let mk_cont_parser cont_parse = (); fun _state str ~max_pos ~pos ->
     parse_quoted state str ~max_pos ~pos \
   \
   and parse_quoted state str ~max_pos ~pos = \
-    if pos > max_pos then mk_cont "parse_quoted" parse_quoted state \
+    if pos > max_pos then mk_cont "parse_quoted" ~eof_safe:False parse_quoted state \
     else \
       match GET_CHAR with \
       | '"' -> \
@@ -847,7 +872,7 @@ let mk_cont_parser cont_parse = (); fun _state str ~max_pos ~pos ->
           parse_quoted state str ~max_pos ~pos:(pos + 1) \
   \
   and parse_escaped state str ~max_pos ~pos = \
-    if pos > max_pos then mk_cont "parse_escaped" parse_escaped state \
+    if pos > max_pos then mk_cont "parse_escaped" ~eof_safe:False parse_escaped state \
     else \
       match GET_CHAR with \
       | '\010' -> bump_line_cont state str ~max_pos ~pos parse_skip_ws \
@@ -870,14 +895,15 @@ let mk_cont_parser cont_parse = (); fun _state str ~max_pos ~pos ->
           add_bump_pos state str ~max_pos ~pos c parse_quoted \
   \
   and parse_skip_ws state str ~max_pos ~pos = \
-    if pos > max_pos then mk_cont "parse_skip_ws" parse_skip_ws state \
+    if pos > max_pos then mk_cont "parse_skip_ws" ~eof_safe:False parse_skip_ws state \
     else \
       match GET_CHAR with \
       | ' ' | '\009' -> bump_pos_cont state str ~max_pos ~pos parse_skip_ws \
       | _ -> parse_quoted state str ~max_pos ~pos \
   \
   and parse_skip_ws_nl state str ~max_pos ~pos = \
-    if pos > max_pos then mk_cont "parse_skip_ws_nl" parse_skip_ws_nl state \
+      if pos > max_pos then \
+        mk_cont "parse_skip_ws_nl" ~eof_safe:False parse_skip_ws_nl state \
     else \
       if GET_CHAR = '\010' then \
         bump_line_cont state str ~max_pos ~pos parse_skip_ws \
@@ -887,7 +913,7 @@ let mk_cont_parser cont_parse = (); fun _state str ~max_pos ~pos ->
       end \
   \
   and parse_dec state str ~max_pos ~pos ~count ~d = \
-    if pos > max_pos then mk_cont "parse_dec" (parse_dec ~count ~d) state \
+    if pos > max_pos then mk_cont "parse_dec" ~eof_safe:False (parse_dec ~count ~d) state \
     else \
       match GET_CHAR with \
       | '0' .. '9' as c -> \
@@ -904,7 +930,7 @@ let mk_cont_parser cont_parse = (); fun _state str ~max_pos ~pos ->
       | c -> raise_unexpected_char (MK_PARSE_STATE state) "parse_dec" pos c \
   \
   and parse_hex state str ~max_pos ~pos ~count ~d = \
-    if pos > max_pos then mk_cont "parse_hex" (parse_hex ~count ~d) state \
+    if pos > max_pos then mk_cont "parse_hex" ~eof_safe:False (parse_hex ~count ~d) state \
     else \
       match GET_CHAR with \
       | '0' .. '9' | 'a' .. 'f' | 'A' .. 'F' as c -> \
@@ -1062,7 +1088,7 @@ let gen_input_rev_sexps my_parse ?parse_pos ?(buf = String.create 8192) ic =
           rev_sexps_ref := sexp :: !rev_sexps_ref;
           let n_parsed = buf_pos - pos in
           let this_parse = mk_this_parse ~parse_pos my_parse in
-          let cont_state = Cont_state.Parsing_whitespace in
+          let cont_state = Cont_state.Parsing_toplevel_whitespace in
           if n_parsed = len then
             let new_len = input ic buf 0 buf_len in
             loop this_parse ~pos:0 ~len:new_len ~cont_state
@@ -1070,7 +1096,7 @@ let gen_input_rev_sexps my_parse ?parse_pos ?(buf = String.create 8192) ic =
       | Cont (cont_state, this_parse) ->
           loop this_parse ~pos:0 ~len:(input ic buf 0 buf_len) ~cont_state
     else
-      if cont_state = Cont_state.Parsing_whitespace then !rev_sexps_ref
+      if cont_state = Cont_state.Parsing_toplevel_whitespace then !rev_sexps_ref
       else
         failwith (
           "Sexplib.Sexp.input_rev_sexps: reached EOF while in state "
@@ -1078,7 +1104,7 @@ let gen_input_rev_sexps my_parse ?parse_pos ?(buf = String.create 8192) ic =
   in
   let len = input ic buf 0 buf_len in
   let this_parse = mk_this_parse ?parse_pos my_parse in
-  loop this_parse ~pos:0 ~len ~cont_state:Cont_state.Parsing_whitespace
+  loop this_parse ~pos:0 ~len ~cont_state:Cont_state.Parsing_toplevel_whitespace
 
 let input_rev_sexps ?parse_pos ?buf ic =
   gen_input_rev_sexps parse ?parse_pos ?buf ic
@@ -1167,7 +1193,7 @@ let gen_load_sexp my_parse ?(strict = true) ?(buf = String.create 8192) file =
             | Cont (cont_state, this_parse) ->
                 let len = input ic buf 0 buf_len in
                 if len > 0 then strict_loop this_parse ~pos:0 ~len
-                else if cont_state = Cont_state.Parsing_whitespace then sexp
+                else if cont_state = Cont_state.Parsing_toplevel_whitespace then sexp
                 else
                   failwith (
                     sprintf "%s: %s in state %s loading file %s"
@@ -1181,7 +1207,7 @@ let gen_load_sexp my_parse ?(strict = true) ?(buf = String.create 8192) file =
   in
   try
     let sexp =
-      loop (mk_this_parse my_parse) ~cont_state:Cont_state.Parsing_whitespace
+      loop (mk_this_parse my_parse) ~cont_state:Cont_state.Parsing_toplevel_whitespace
     in
     close_in ic;
     sexp
@@ -1342,4 +1368,3 @@ let rec subst_found sexp ~subst = function
                 List (List.rev_append acc (subst_found h ~subst found :: t))
           in
           loop [] pos lst
-

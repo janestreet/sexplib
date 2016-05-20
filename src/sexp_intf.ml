@@ -102,7 +102,8 @@ module type S = sig
   module Cont_state : sig
     (** State of parser continuations *)
     type t = Pre_sexp.Cont_state.t =
-      | Parsing_whitespace
+      | Parsing_toplevel_whitespace
+      | Parsing_nested_whitespace
       | Parsing_atom
       | Parsing_list
       | Parsing_sexp_comment
