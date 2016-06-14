@@ -82,13 +82,13 @@ let record_poly_field_value loc sexp =
 
 (* Errors concerning polymorphic variants *)
 
-exception No_variant_match of string * Sexp.t
+exception No_variant_match
 
-let no_variant_match loc sexp =
-  raise (No_variant_match (loc ^ "_of_sexp", sexp))
+let no_variant_match () =
+  raise No_variant_match
 
 let no_matching_variant_found loc sexp =
-  of_sexp_error (loc ^ ": no matching variant found") sexp
+  of_sexp_error (loc ^ "_of_sexp: no matching variant found") sexp
 
 let ptag_no_args loc sexp =
   of_sexp_error (
