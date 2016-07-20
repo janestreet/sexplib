@@ -6,8 +6,8 @@ exception Macro_conv_error of exn * Sexp.t * [`expanded of Sexp.t]
 
 let () =
   let open Sexp in
-  Conv.Exn_converter.add_auto ~finalise:false
-    (Macro_conv_error (Failure "", List [], `expanded (List [])))
+  Conv.Exn_converter.add ~finalise:false
+    [%extension_constructor Macro_conv_error]
     (function
       | Macro_conv_error (exn, unexpanded, `expanded expanded) ->
         List [Atom "Sexplib.Macro.Macro_conv_error";
@@ -401,8 +401,8 @@ end
 
 exception Error_in_file of string * exn
 let () =
-  Conv.Exn_converter.add_auto ~finalise:false
-    (Error_in_file ("foo", Exit))
+  Conv.Exn_converter.add ~finalise:false
+    [%extension_constructor Error_in_file]
     (function
       | Error_in_file (file, exn) ->
         Sexp.List [Sexp.Atom ("Error in file " ^ file); Conv.sexp_of_exn exn]

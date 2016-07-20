@@ -181,7 +181,8 @@ module Exn_converter = struct
 
   module Exn_ids = Map.Make (Int)
 
-  let exn_id_map : (exn -> Sexp.t) Exn_ids.t ref = ref Exn_ids.empty
+  let exn_id_map : ((extension_constructor, (exn -> Sexp.t)) Ephemeron.K1.t) Exn_ids.t ref =
+    ref Exn_ids.empty
 
   (* [Obj.extension_id] works on both the exception itself, and the extension slot of the
      exception. *)
@@ -195,11 +196,16 @@ module Exn_converter = struct
     else
       exn_id_map := new_exn_id_map
 
-  let add_auto ?(finalise = true) exn sexp_of_exn =
-    let id = Obj.extension_id (Obj.extension_constructor exn) in
+  (* Ephemerons are used so that [sexp_of_exn] closure don't keep the
+     extension_constructor live. *)
+  let add ?(finalise = true) extension_constructor sexp_of_exn =
+    let id = Obj.extension_id extension_constructor in
     let rec loop () =
       let old_exn_id_map = !exn_id_map in
-      let new_exn_id_map = Exn_ids.add id sexp_of_exn old_exn_id_map in
+      let ephe = Ephemeron.K1.create () in
+      Ephemeron.K1.set_data ephe sexp_of_exn;
+      Ephemeron.K1.set_key ephe extension_constructor;
+      let new_exn_id_map = Exn_ids.add id ephe old_exn_id_map in
       (* This trick avoids mutexes and should be fairly efficient *)
       if !exn_id_map != old_exn_id_map then
         loop ()
@@ -207,7 +213,7 @@ module Exn_converter = struct
         exn_id_map := new_exn_id_map;
         if finalise then
           try
-            Gc.finalise clean_up_handler (Obj.extension_constructor exn)
+            Gc.finalise clean_up_handler extension_constructor
           with Invalid_argument _ ->
             (* Pre-allocated extension constructors cannot be finalised *)
             ()
@@ -215,11 +221,17 @@ module Exn_converter = struct
     in
     loop ()
 
+  let add_auto ?finalise exn sexp_of_exn =
+    add ?finalise (Obj.extension_constructor exn) sexp_of_exn
+
   let find_auto exn =
     let id = Obj.extension_id (Obj.extension_constructor exn) in
     match Exn_ids.find id !exn_id_map with
     | exception Not_found -> None
-    | sexp_of_exn -> Some (sexp_of_exn exn)
+    | ephe ->
+      match Ephemeron.K1.get_data ephe with
+      | None -> None
+      | Some sexp_of_exn -> Some (sexp_of_exn exn)
 
 
   let max_exn_tags = ref 20
@@ -245,7 +257,7 @@ let sexp_of_exn exn =
 let exn_to_string e = Sexp.to_string_hum (sexp_of_exn e)
 
 (* {[exception Blah [@@deriving sexp]]} generates a call to the function
-   [Exn_converter.add_auto] defined in this file.  So we are guaranted that as soon as we
+   [Exn_converter.add] defined in this file.  So we are guaranted that as soon as we
    mark an exception as sexpable, this module will be linked in and this printer will be
    registered, which is what we want. *)
 let () =
@@ -470,123 +482,106 @@ let get_flc_error name (file, line, chr) =
 
 let () =
   List.iter
-    (fun (exc, handler) -> Exn_converter.add_auto ~finalise:false exc handler)
+    (fun (extension_constructor, handler) -> Exn_converter.add ~finalise:false extension_constructor handler)
     [
       (
-        Assert_failure ("", 0, 0),
+        [%extension_constructor Assert_failure],
         (function
         | Assert_failure arg -> get_flc_error "Assert_failure" arg
         | _ -> assert false)
       );(
-        Exit,
+        [%extension_constructor Exit],
         (function
         | Exit -> Atom "Exit"
         | _ -> assert false)
       );(
-        End_of_file,
+        [%extension_constructor End_of_file],
         (function
         | End_of_file -> Atom "End_of_file"
         | _ -> assert false)
       );(
-        Failure "",
+        [%extension_constructor Failure],
         (function
         | Failure arg -> List [Atom "Failure"; Atom arg ]
         | _ -> assert false)
       );(
-        Not_found,
+        [%extension_constructor Not_found],
         (function
         | Not_found -> Atom "Not_found"
         | _ -> assert false)
       );(
-        Invalid_argument "",
+        [%extension_constructor Invalid_argument],
         (function
         | Invalid_argument arg -> List [Atom "Invalid_argument"; Atom arg ]
         | _ -> assert false)
       );(
-        Match_failure ("", 0, 0),
+        [%extension_constructor Match_failure],
         (function
         | Match_failure arg -> get_flc_error "Match_failure" arg
         | _ -> assert false)
       );(
-        Sys_error "",
+        [%extension_constructor Sys_error],
         (function
         | Sys_error arg -> List [Atom "Sys_error"; Atom arg ]
         | _ -> assert false)
       );(
-        Arg.Help "",
+        [%extension_constructor Arg.Help],
         (function
         | Arg.Help arg -> List [Atom "Arg.Help"; Atom arg ]
         | _ -> assert false)
       );(
-        Arg.Bad "",
+        [%extension_constructor Arg.Bad],
         (function
         | Arg.Bad arg -> List [Atom "Arg.Bad"; Atom arg ]
         | _ -> assert false)
       );(
-        Lazy.Undefined,
+        [%extension_constructor Lazy.Undefined],
         (function
         | Lazy.Undefined -> Atom "Lazy.Undefined"
         | _ -> assert false)
       );(
-        Parsing.Parse_error,
+        [%extension_constructor Parsing.Parse_error],
         (function
         | Parsing.Parse_error -> Atom "Parsing.Parse_error"
         | _ -> assert false)
       );(
-        Queue.Empty,
+        [%extension_constructor Queue.Empty],
         (function
         | Queue.Empty -> Atom "Queue.Empty"
         | _ -> assert false)
       );(
-        Scanf.Scan_failure "",
+        [%extension_constructor Scanf.Scan_failure],
         (function
         | Scanf.Scan_failure arg -> List [Atom "Scanf.Scan_failure"; Atom arg ]
         | _ -> assert false)
       );(
-        Stack.Empty,
+        [%extension_constructor Stack.Empty],
         (function
         | Stack.Empty -> Atom "Stack.Empty"
         | _ -> assert false)
       );(
-        Stream.Failure,
+        [%extension_constructor Stream.Failure],
         (function
         | Stream.Failure -> Atom "Stream.Failure"
         | _ -> assert false)
       );(
-        Stream.Error "",
+        [%extension_constructor Stream.Error],
         (function
         | Stream.Error arg -> List [Atom "Stream.Error"; Atom arg ]
         | _ -> assert false)
       );(
-        Sys.Break,
+        [%extension_constructor Sys.Break],
         (function
         | Sys.Break -> Atom "Sys.Break"
         | _ -> assert false)
       );(
-        Of_sexp_error (Exit, Atom ""),
+        [%extension_constructor Of_sexp_error],
         (function
         | Of_sexp_error (exc, sexp) ->
             List [Atom "Sexplib.Conv.Of_sexp_error"; sexp_of_exn exc; sexp]
         | _ -> assert false)
       );(
-        Parse_error {
-          Pre_sexp.
-          location = "";
-          err_msg = "";
-          parse_state =
-            `Sexp {
-              Pre_sexp.
-              parse_pos = {
-                Pre_sexp.Parse_pos.
-                text_line = 0;
-                text_char = 0;
-                global_offset = 0;
-                buf_pos = 0;
-              };
-              pstack = [];
-              pbuf = Buffer.create 0;
-            };
-        },
+        [%extension_constructor Parse_error],
         (function
         | Parse_error pe ->
             let ppos =
@@ -608,12 +603,7 @@ let () =
             ]
         | _ -> assert false)
       );(
-        Of_string_conv_exn.E {
-          Of_string_conv_exn.
-          exc = Exit;
-          sexp = Atom "";
-          sub_sexp = Atom "";
-        },
+        [%extension_constructor Of_string_conv_exn.E],
         (function
         | Of_string_conv_exn.E osce ->
             List [
@@ -626,7 +616,7 @@ let () =
             ]
         | _ -> assert false)
       );(
-        Sexp.Annotated.Conv_exn ("", Exit),
+        [%extension_constructor Sexp.Annotated.Conv_exn],
         (function
         | Sexp.Annotated.Conv_exn (loc, exn) ->
             List [

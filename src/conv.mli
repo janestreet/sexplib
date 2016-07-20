@@ -331,27 +331,22 @@ module Exn_converter : sig
   val get_max_exn_tags : unit -> int [@@deprecated]
 
   val add_auto : ?finalise : bool -> exn -> (exn -> Sexp.t) -> unit
-  (** [add_auto ?finalise templ sexp_of_exn] registers exception S-expression
-      converter [sexp_of_exn] for exceptions having same constructor as
-      template [templ].
+    [@@deprecated "[2016-07] use Conv.Exn_converter.add"]
 
-      NOTE: if the exception belongs to a transient module, e.g. local modules
-      (including functor instantiations), first-class modules, etc., a manually
-      written [sexp_of_exn] must use [Obj.magic] internally to avoid matching
-      or creating the exception, otherwise the handler can never be reclaimed
-      once the exception ceases to exist.  If [finalise] is [true], then
-      the exception will be automatically registered for removal with the GC
-      (default).  Finalisation will not work with exceptions that have been
-      allocated outside the heap, which is the case for some standard ones
-      e.g. [Sys_error].
+  val add : ?finalise : bool -> extension_constructor -> (exn -> Sexp.t) -> unit
+  (** [add ?finalise constructor sexp_of_exn] registers exception S-expression
+      converter [sexp_of_exn] for exceptions with the given [constructor].
 
-      NOTE: Use with great caution, this function is primarily intended for
-      automated use!  If unsure, use [add_slow] instead.
+      NOTE: If [finalise] is [true], then the exception will be automatically
+      registered for removal with the GC (default).  Finalisation will not work
+      with exceptions that have been allocated outside the heap, which is the
+      case for some standard ones e.g. [Sys_error].
 
       @param finalise default = [true]
   *)
 
   val add_slow : (exn -> Sexp.t option) -> t
+    [@@deprecated "[2016-07] use Conv.Exn_converter.add"]
   (** [add_slow sexp_of_exn] registers exception S-expression converter
       [sexp_of_exn] and returns a handle.  Exception converters registered this
       way are much slower than with [add], but this function does not require
@@ -360,9 +355,12 @@ module Exn_converter : sig
       eventually have to unregister it manually with {!del}, otherwise there
       is a space leak! *)
 
+
   val del_slow : t -> unit
+    [@@deprecated "[2016-07] use Conv.Exn_converter.add"]
   (** [del_slow handle] unregisters exception S-expression converter with
       handle [handle].  In multi-threaded contexts it is not guaranteed
       that the unregistered converter will not be called after this function
       returns. *)
+
 end
