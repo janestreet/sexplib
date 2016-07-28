@@ -325,11 +325,6 @@ val sexp_of_exn_opt : exn -> Sexp.t option
     If no suitable converter is found, [None] is returned instead. *)
 
 module Exn_converter : sig
-  type t  (** Type of handles for exception S-expression converters *)
-
-  val set_max_exn_tags : int -> unit [@@deprecated]
-  val get_max_exn_tags : unit -> int [@@deprecated]
-
   val add_auto : ?finalise : bool -> exn -> (exn -> Sexp.t) -> unit
     [@@deprecated "[2016-07] use Conv.Exn_converter.add"]
 
@@ -345,22 +340,7 @@ module Exn_converter : sig
       @param finalise default = [true]
   *)
 
-  val add_slow : (exn -> Sexp.t option) -> t
-    [@@deprecated "[2016-07] use Conv.Exn_converter.add"]
-  (** [add_slow sexp_of_exn] registers exception S-expression converter
-      [sexp_of_exn] and returns a handle.  Exception converters registered this
-      way are much slower than with [add], but this function does not require
-      an exception template.  NOTE: if you call this function explicitly,
-      or the "sexp"-macro for exceptions from within local modules, you will
-      eventually have to unregister it manually with {!del}, otherwise there
-      is a space leak! *)
-
-
-  val del_slow : t -> unit
-    [@@deprecated "[2016-07] use Conv.Exn_converter.add"]
-  (** [del_slow handle] unregisters exception S-expression converter with
-      handle [handle].  In multi-threaded contexts it is not guaranteed
-      that the unregistered converter will not be called after this function
-      returns. *)
-
+  module For_unit_tests_only : sig
+    val size : unit -> int
+  end
 end

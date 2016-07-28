@@ -127,49 +127,10 @@ let string_of__of__sexp_of to_sexp x = Sexp.to_string (to_sexp x)
 (* Exception converter registration and lookup *)
 
 module Exn_converter = struct
-  type t = int64
-
-  module Ids = Map.Make (Int64)
-
-  let exn_id_cnt = ref Int64.max_int
-  let exn_handlers : (exn -> Sexp.t option) Ids.t ref = ref Ids.empty
-
   (* These exception registration functions assume that context-switches
      cannot happen unless there is an allocation.  It is reasonable to expect
      that this will remain true for the foreseeable future.  That way we
      avoid using mutexes and thus a dependency on the threads library. *)
-
-  let rec add_slow sexp_of_exn =
-    let exn_id = !exn_id_cnt in
-    let new_exn_id = Int64.sub exn_id Int64.one in
-    let new_exn_handlers = Ids.add exn_id sexp_of_exn !exn_handlers in
-    (* This trick avoids mutexes and should be fairly efficient *)
-    if !exn_id_cnt != exn_id then add_slow sexp_of_exn
-    else begin
-      (* These two assignments should always be atomic *)
-      exn_id_cnt := new_exn_id;
-      exn_handlers := new_exn_handlers;
-      exn_id
-    end
-
-  let rec del_slow exn_id =
-    let old_exn_handlers = !exn_handlers in
-    let new_exn_handlers = Ids.remove exn_id old_exn_handlers in
-    (* This trick avoids mutexes and should be fairly efficient *)
-    if !exn_handlers != old_exn_handlers then del_slow exn_id
-    else exn_handlers := new_exn_handlers
-
-  exception Found_sexp_opt of Sexp.t option
-
-  let find_slow exn =
-    try
-      let act _id sexp_of_exn =
-        let sexp_opt = sexp_of_exn exn in
-        if sexp_opt <> None then raise (Found_sexp_opt sexp_opt)
-      in
-      Ids.iter act !exn_handlers;
-      None
-    with Found_sexp_opt sexp_opt -> sexp_opt
 
   (* Fast and automatic exception registration *)
 
@@ -234,20 +195,18 @@ module Exn_converter = struct
       | Some sexp_of_exn -> Some (sexp_of_exn exn)
 
 
-  let max_exn_tags = ref 20
+  module For_unit_tests_only = struct
+    let size () = Exn_ids.fold (fun _ ephe acc ->
+      match Ephemeron.K1.get_data ephe with
+      | None -> acc
+      | Some _ -> acc + 1
+    ) !exn_id_map 0
+  end
 
-  let set_max_exn_tags n =
-    if n < 1 then
-      failwith "Sexplib.Conv.Exn_converter.set_max_exn_tags: n < 1"
-    else max_exn_tags := n
-
-  let get_max_exn_tags () = !max_exn_tags
 end
 
-let sexp_of_exn_opt exn =
-  let sexp_opt = Exn_converter.find_auto exn in
-  if sexp_opt = None then Exn_converter.find_slow exn
-  else sexp_opt
+let sexp_of_exn_opt exn = Exn_converter.find_auto exn
+
 
 let sexp_of_exn exn =
   match sexp_of_exn_opt exn with
