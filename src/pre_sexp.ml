@@ -1065,49 +1065,67 @@ let mk_this_parse ?parse_pos my_parse = (); fun ~pos ~len str ->
   in
   my_parse ?parse_pos:(Some parse_pos) ?len:(Some len) str
 
+(* [ws_buf] must contain a single space character *)
+let feed_end_of_input ~this_parse ~ws_buf =
+  (* When parsing atoms, the incremental parser cannot tell whether
+     it is at the end until it hits whitespace.  We therefore feed it
+     one space to determine whether it is finished. *)
+  match this_parse ~pos:0 ~len:1 ws_buf with
+  | Done (sexp, _) -> Ok sexp
+  | Cont (cont_state, _) -> Error cont_state
+
 let gen_input_sexp my_parse ?parse_pos ic =
   let buf = String.create 1 in
   let rec loop this_parse =
-    let c = input_char ic in
-    buf.[0] <- c;
-    match this_parse ~pos:0 ~len:1 buf with
-    | Done (sexp, _) -> sexp
-    | Cont (_, this_parse) -> loop this_parse
+    match input_char ic with
+    | exception End_of_file ->
+      (buf.[0] <- ' ';
+       match feed_end_of_input ~this_parse ~ws_buf:buf with
+       | Ok sexp -> sexp
+       | Error _ -> raise End_of_file)
+    | c ->
+      buf.[0] <- c;
+      match this_parse ~pos:0 ~len:1 buf with
+      | Done (sexp, _) -> sexp
+      | Cont (_, this_parse) -> loop this_parse
   in
   loop (mk_this_parse ?parse_pos my_parse)
 
 let input_sexp ?parse_pos ic = gen_input_sexp parse ?parse_pos ic
 
-let gen_input_rev_sexps my_parse ?parse_pos ?(buf = String.create 8192) ic =
+let gen_input_rev_sexps my_parse ~ws_buf ?parse_pos ?(buf = String.create 8192) ic =
   let rev_sexps_ref = ref [] in
   let buf_len = String.length buf in
-  let rec loop this_parse ~pos ~len ~cont_state =
+  let rec loop this_parse ~pos ~len =
     if len > 0 then
       match this_parse ~pos ~len buf with
       | Done (sexp, ({ Parse_pos.buf_pos; _ } as parse_pos)) ->
-          rev_sexps_ref := sexp :: !rev_sexps_ref;
-          let n_parsed = buf_pos - pos in
-          let this_parse = mk_this_parse ~parse_pos my_parse in
-          let cont_state = Cont_state.Parsing_toplevel_whitespace in
-          if n_parsed = len then
-            let new_len = input ic buf 0 buf_len in
-            loop this_parse ~pos:0 ~len:new_len ~cont_state
-          else loop this_parse ~pos:buf_pos ~len:(len - n_parsed) ~cont_state
-      | Cont (cont_state, this_parse) ->
-          loop this_parse ~pos:0 ~len:(input ic buf 0 buf_len) ~cont_state
+        rev_sexps_ref := sexp :: !rev_sexps_ref;
+        let n_parsed = buf_pos - pos in
+        let this_parse = mk_this_parse ~parse_pos my_parse in
+        if n_parsed = len then
+          let new_len = input ic buf 0 buf_len in
+          loop this_parse ~pos:0 ~len:new_len
+        else loop this_parse ~pos:buf_pos ~len:(len - n_parsed)
+      | Cont (_, this_parse) ->
+        loop this_parse ~pos:0 ~len:(input ic buf 0 buf_len)
     else
-      if cont_state = Cont_state.Parsing_toplevel_whitespace then !rev_sexps_ref
-      else
+      match feed_end_of_input ~this_parse ~ws_buf with
+      | Ok sexp ->
+        sexp :: !rev_sexps_ref
+      | Error Parsing_toplevel_whitespace ->
+        !rev_sexps_ref
+      | Error cont_state ->
         failwith (
           "Sexplib.Sexp.input_rev_sexps: reached EOF while in state "
           ^ Cont_state.to_string cont_state)
   in
   let len = input ic buf 0 buf_len in
   let this_parse = mk_this_parse ?parse_pos my_parse in
-  loop this_parse ~pos:0 ~len ~cont_state:Cont_state.Parsing_toplevel_whitespace
+  loop this_parse ~pos:0 ~len
 
 let input_rev_sexps ?parse_pos ?buf ic =
-  gen_input_rev_sexps parse ?parse_pos ?buf ic
+  gen_input_rev_sexps parse ~ws_buf:" " ?parse_pos ?buf ic
 
 let input_sexps ?parse_pos ?buf ic =
   List.rev (input_rev_sexps ?parse_pos ?buf ic)
@@ -1118,27 +1136,24 @@ let input_sexps ?parse_pos ?buf ic =
 let of_string_bigstring loc this_parse ws_buf get_len get_sub str =
   match this_parse str with
   | Done (_, { Parse_pos.buf_pos; _ }) when buf_pos <> get_len str ->
-      let prefix_len = min (get_len str - buf_pos) 20 in
-      let prefix = get_sub str buf_pos prefix_len in
-      let msg =
-        sprintf
-          "Sexplib.Sexp.%s: S-expression followed by data at position %d: %S..."
-          loc buf_pos prefix
-      in
-      failwith msg
+    let prefix_len = min (get_len str - buf_pos) 20 in
+    let prefix = get_sub str buf_pos prefix_len in
+    let msg =
+      sprintf
+        "Sexplib.Sexp.%s: S-expression followed by data at position %d: %S..."
+        loc buf_pos prefix
+    in
+    failwith msg
   | Done (sexp, _) -> sexp
   | Cont (_, this_parse) ->
-      (* When parsing atoms, the incremental parser cannot tell whether
-         it is at the end until it hits whitespace.  We therefore feed it
-         one space to determine whether it is finished. *)
-      match this_parse ~pos:0 ~len:1 ws_buf with
-      | Done (sexp, _) -> sexp
-      | Cont (cont_state, _) ->
-          let cont_state_str = Cont_state.to_string cont_state in
-          failwith (
-            sprintf
-              "Sexplib.Sexp.%s: incomplete S-expression while in state %s: %s"
-              loc cont_state_str (get_sub str 0 (get_len str)))
+    match feed_end_of_input ~this_parse ~ws_buf with
+    | Ok sexp -> sexp
+    | Error cont_state ->
+      let cont_state_str = Cont_state.to_string cont_state in
+      failwith (
+        sprintf
+          "Sexplib.Sexp.%s: incomplete S-expression while in state %s: %s"
+          loc cont_state_str (get_sub str 0 (get_len str)))
 
 let of_string str =
   of_string_bigstring "of_string" parse " " String.length String.sub str
@@ -1175,12 +1190,15 @@ let gen_load_sexp_loc = "Sexplib.Sexp.gen_load_sexp"
 let gen_load_sexp my_parse ?(strict = true) ?(buf = String.create 8192) file =
   let buf_len = String.length buf in
   let ic = open_in file in
-  let rec loop this_parse ~cont_state =
+  let rec loop this_parse =
     let len = input ic buf 0 buf_len in
     if len = 0 then
-      failwith (
-        sprintf "%s: EOF in %s while in state %s"
-          gen_load_sexp_loc file (Cont_state.to_string cont_state))
+      match feed_end_of_input ~this_parse ~ws_buf:" " with
+      | Ok sexp -> sexp
+      | Error cont_state ->
+        failwith (
+          sprintf "%s: EOF in %s while in state %s"
+            gen_load_sexp_loc file (Cont_state.to_string cont_state))
     else
       match this_parse ~pos:0 ~len buf with
       | Done (sexp, ({ Parse_pos.buf_pos; _ } as parse_pos)) when strict ->
@@ -1203,12 +1221,10 @@ let gen_load_sexp my_parse ?(strict = true) ?(buf = String.create 8192) file =
           let this_parse = mk_this_parse ~parse_pos my_parse in
           strict_loop this_parse ~pos:buf_pos ~len:(len - buf_pos)
       | Done (sexp, _) -> sexp
-      | Cont (cont_state, this_parse) -> loop this_parse ~cont_state
+      | Cont (_, this_parse) -> loop this_parse
   in
   try
-    let sexp =
-      loop (mk_this_parse my_parse) ~cont_state:Cont_state.Parsing_toplevel_whitespace
-    in
+    let sexp = loop (mk_this_parse my_parse) in
     close_in ic;
     sexp
   with exc -> close_in_noerr ic; raise exc
@@ -1222,7 +1238,7 @@ module Annotated = struct
   let parse_bigstring = parse_bigstring_annot
 
   let input_rev_sexps ?parse_pos ?buf ic =
-    gen_input_rev_sexps parse ?parse_pos ?buf ic
+    gen_input_rev_sexps parse ~ws_buf:" " ?parse_pos ?buf ic
 
   let input_sexp ?parse_pos ic = gen_input_sexp parse ?parse_pos ic
 
