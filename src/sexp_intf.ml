@@ -638,7 +638,7 @@ module type S = sig
       type asexp
       type 'a t (* monad for position-respecting asexp rendering *)
       val return : 'a -> 'a t
-      val bind : 'a t -> ('a -> 'b t) -> 'b t
+      val bind : 'a t -> f:('a -> 'b t) -> 'b t
       val sexp : asexp -> unit t (* assumes that positions in [asexp] are relative *)
       val run : (char -> unit) -> unit t -> unit
     end

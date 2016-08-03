@@ -39,7 +39,7 @@ module Render = struct
 
   let return a _putc _st = a
 
-  let bind m f putc st = f (m putc st) putc st
+  let bind m ~f putc st = f (m putc st) putc st
 
   let run putc m =
     m putc {
