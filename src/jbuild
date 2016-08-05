@@ -1,0 +1,9 @@
+(library
+ ((name sexplib)
+  (libraries (bigarray))
+  (public_name sexplib)
+  (preprocess (((command ${PA_CPP}) (List (pre_sexp)))))
+  (js_of_ocaml ())))
+
+(ocamllex (lexer))
+(ocamlyacc (parser parser_with_layout))
