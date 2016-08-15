@@ -226,6 +226,14 @@ let () =
     | Some sexp ->
       Some (Sexp.to_string_hum ~indent:2 sexp))
 
+let () =
+  (* Import Sexp0 exception converters and connect Sexp0 callbacks to Exn_converter *)
+  Sexp0.Sexp.register_exn_converter := (fun ec f -> Exn_converter.add ec f);
+  Sexp0.Sexp.sexp_of_exn := sexp_of_exn;
+  let l = !Sexp0.Sexp.exn_converters in
+  Sexp0.Sexp.exn_converters := [];
+  List.iter (fun (ec, f) -> Exn_converter.add ec f) l
+
 (* Conversion of S-expressions to OCaml-values *)
 
 exception Of_sexp_error = Pre_sexp.Of_sexp_error

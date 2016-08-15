@@ -1,6 +1,6 @@
 (library
  ((name sexplib)
-  (libraries (bigarray))
+  (libraries (bigarray sexp0))
   (public_name sexplib)
   (preprocess (((command ${PA_CPP}) (List (pre_sexp)))))
   (js_of_ocaml ())))

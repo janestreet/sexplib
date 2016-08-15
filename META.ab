@@ -1,6 +1,6 @@
 version = "$(pkg_version)"
 description = "Library for serializing OCaml values to and from S-expressions"
-requires = "bigarray"
+requires = "bigarray shexp.sexp0"
 archive(byte  ) = "sexplib.cma"
 archive(native) = "sexplib.cmxa"
 plugin(byte  ) = "sexplib.cma"
