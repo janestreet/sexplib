@@ -1,8 +1,5 @@
+;; These tests are here rather than in sexplib/src to avoid adding a build dependency of
+;; sexplib on ppx_inline_test.
 (library
  ((name sexplib_ounit_tests)
   (libraries (sexplib str))))
-
-;; these tests are here rather than
-;;    sexplib/lib       to avoid adding a build dependency of sexplib on ppx_inline_test
-;;    sexplib/lib_test  because adding TEST macros works better in a directory that
-;;                      defines a library than in one that defines executables
