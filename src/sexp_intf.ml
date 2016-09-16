@@ -11,6 +11,7 @@ module type S = sig
   (** Type of bigstrings *)
   type bigstring = (char, int8_unsigned_elt, c_layout) Array1.t
 
+  val compare : t -> t -> int
 
   (** {6 Defaults} *)
 

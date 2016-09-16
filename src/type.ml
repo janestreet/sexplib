@@ -1,2 +1,2 @@
 (** Type of S-expressions *)
-type t = Sexp0.Sexp.t = Atom of string | List of t list
+type t = Base0.Sexplib.Sexp.t = Atom of string | List of t list
