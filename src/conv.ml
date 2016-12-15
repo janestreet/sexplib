@@ -1,8 +1,9 @@
 open Printf
 open Bigarray
+
+module Sexplib = Base.Exported_for_specific_uses.Sexplib
 module String = Bytes
-include (Base0.Sexplib.Conv : module type of Base0.Sexplib.Conv
-         with module Sexp := Base0.Sexplib.Conv.Sexp)
+include Sexplib.Conv
 open Sexp
 
 type bigstring = (char, int8_unsigned_elt, c_layout) Array1.t

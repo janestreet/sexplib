@@ -2,18 +2,18 @@
 
 open Format
 open Bigarray
-module Conv = Base0.Sexplib.Conv (* conv.ml depends on us so we can
+module Sexplib = Base.Exported_for_specific_uses.Sexplib
+module Conv = Sexplib.Conv (* conv.ml depends on us so we can
                                     only use this module *)
 
 module String = Bytes
 
 include Type
 
-exception Of_sexp_error = Conv.Of_sexp_error
-
 type bigstring = (char, int8_unsigned_elt, c_layout) Array1.t
-include Base0.Sexplib.Sexp.Printing
-let compare = Base0.Sexplib.Sexp.compare
+include (Sexplib.Sexp : module type of struct include Sexplib.Sexp end with type t := t)
+include Private
+let compare = Sexplib.Sexp.compare
 
 (* Output of S-expressions to I/O-channels *)
 
@@ -316,7 +316,6 @@ let raise_unexpected_char parse_state location buf_pos c =
 let mk_cont_parser cont_parse = (); fun _state str ~max_pos ~pos ->
   let len = max_pos - pos + 1 in
   cont_parse ~pos ~len str
-
 
 module Safe_empty_parse = struct
   (* A type indicating whether [eof] in a certain parser state should result in valid
@@ -913,18 +912,24 @@ let input_sexps ?parse_pos ?buf ic =
 
 (* of_string and of_bigstring *)
 
-let of_string_bigstring loc this_parse ws_buf get_len get_sub str =
-  match this_parse str with
-  | Done (_, { Parse_pos.buf_pos; _ }) when buf_pos <> get_len str ->
-    let prefix_len = min (get_len str - buf_pos) 20 in
-    let prefix = get_sub str buf_pos prefix_len in
-    let msg =
-      sprintf
-        "Sexplib.Sexp.%s: S-expression followed by data at position %d: %S..."
-        loc buf_pos prefix
-    in
-    failwith msg
-  | Done (sexp, _) -> sexp
+let of_string_bigstring loc my_parse ws_buf get_len get_sub str =
+  match my_parse ?parse_pos:None ?len:None str with
+  | Done (sexp, parse_pos) ->
+    begin
+      match my_parse ?parse_pos:(Some parse_pos) ?len:None str with
+      | Done (_sexp2, _) ->
+        failwith (sprintf (
+          "Sexplib.Sexp.%s: got multiple S-expressions where only one was expected."
+        ) loc)
+      | Cont (Cont_state.Parsing_toplevel_whitespace, _) ->
+        sexp
+      | Cont (_, _) ->
+        (* not using [feed_end_of_input] here means "a b" will end up here and not in
+           "multiple S-expressions" branch, but it doesn't matter that much *)
+        failwith (sprintf (
+          "Sexplib.Sexp.%s: S-expression followed by data at position %d...")
+          loc parse_pos.buf_pos)
+    end
   | Cont (_, this_parse) ->
     match feed_end_of_input ~this_parse ~ws_buf with
     | Ok sexp -> sexp
@@ -948,7 +953,9 @@ let () = bstr_ws_buf.{0} <- ' '
 
 let of_bigstring bstr =
   of_string_bigstring
-    "of_bigstring" parse_bigstring bstr_ws_buf Array1.dim get_bstr_sub_str bstr
+    "of_bigstring"
+    parse_bigstring
+    bstr_ws_buf Array1.dim get_bstr_sub_str bstr
 
 
 (* Loading *)
@@ -982,7 +989,7 @@ let gen_load_sexp my_parse ?(strict = true) ?(buf = String.create 8192) file =
     else
       match this_parse ~pos:0 ~len buf with
       | Done (sexp, ({ Parse_pos.buf_pos; _ } as parse_pos)) when strict ->
-          let rec strict_loop this_parse ~pos ~len =
+        let rec strict_loop this_parse ~pos ~len =
             match this_parse ~pos ~len buf with
             | Done _ ->
                 failwith (
@@ -1027,12 +1034,14 @@ module Annotated = struct
 
   let of_string str =
     of_string_bigstring
-      "Annotated.of_string" parse " " String.length String.sub str
+      "Annotated.of_string" parse
+      " " String.length String.sub str
 
   let of_bigstring bstr =
     of_string_bigstring
       "Annotated.of_bigstring"
-      parse_bigstring bstr_ws_buf Array1.dim get_bstr_sub_str bstr
+      parse_bigstring
+      bstr_ws_buf Array1.dim get_bstr_sub_str bstr
 
   let load_rev_sexps ?buf file = gen_load_rev_sexps input_rev_sexps ?buf file
   let load_sexps ?buf file = List.rev (load_rev_sexps ?buf file)

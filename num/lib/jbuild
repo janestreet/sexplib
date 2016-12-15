@@ -1,5 +1,5 @@
 (library
  ((name sexplib_num)
   (public_name sexplib.num)
-  (libraries (nums sexplib))
-  (preprocess ((no_preprocessing All)))))
+  (libraries (num sexplib))
+  (preprocess no_preprocessing)))

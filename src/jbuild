@@ -2,7 +2,7 @@
  ((name sexplib)
   (libraries (bigarray base))
   (public_name sexplib)
-  (preprocess (((command ${PA_CPP}) (List (pre_sexp)))))
+  (preprocess (per_file ((command ${PA_CPP}) (pre_sexp))))
   (js_of_ocaml ())))
 
 (ocamllex (lexer))
