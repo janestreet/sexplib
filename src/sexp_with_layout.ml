@@ -30,6 +30,7 @@ module Render = struct
     mutable row_shift : Rel_pos.t;
     mutable current : Abs_pos.t;
     mutable last_atom : last_atom option;
+    mutable last_comment_row : int;
   }
 
   (* the point of [immed_after_last_atom] is to prevent
@@ -46,6 +47,7 @@ module Render = struct
       row_shift = Rel_pos.zero;
       current = Abs_pos.origin;
       last_atom = None;
+      last_comment_row = 0; (* before the file starts *)
     }
 
   let emit_char putc st c =
@@ -65,7 +67,7 @@ module Render = struct
   let emit_chars putc st c ~n =
     emit_string putc st (String.make n c)
 
-  let advance putc ~anchor st ~by:delta ~unescaped_atom =
+  let advance putc ~anchor st ~by:delta ~unescaped_atom ~line_comment =
     let new_pos = Abs_pos.add (Abs_pos.add anchor delta) st.row_shift in
     let need_to_leave_room_between_two_unescaped_atoms_lest_they_become_one =
       unescaped_atom && begin
@@ -75,9 +77,12 @@ module Render = struct
         | None -> false
       end
     in
+    (* avoid joining subsequent items into a preceding line comment *)
+    let need_to_clear_line_comment = (new_pos.row = st.last_comment_row) in
     let need_to_reposition =
       not (Abs_pos.geq new_pos st.current)
-        || need_to_leave_room_between_two_unescaped_atoms_lest_they_become_one
+      || need_to_clear_line_comment
+      || need_to_leave_room_between_two_unescaped_atoms_lest_they_become_one
     in
     let (row_delta, new_pos) =
       if need_to_reposition then begin
@@ -99,6 +104,9 @@ module Render = struct
       end;
     end;
     assert (new_pos = st.current);
+    if line_comment then (
+      st.last_comment_row <- st.current.row
+    );
     st.row_shift <- {
       st.row_shift with Rel_pos.
       row = st.row_shift.Rel_pos.row + row_delta;
@@ -113,15 +121,15 @@ module Render = struct
         | Some text -> text
       in
       let unescaped = fmt_text.[0] <> '"' in
-      advance putc st ~by:delta ~anchor ~unescaped_atom:unescaped;
+      advance putc st ~by:delta ~anchor ~unescaped_atom:unescaped ~line_comment:false;
       emit_string putc st fmt_text;
       st.last_atom <- Some { immed_after = st.current; unescaped; };
     | List (start_delta, tocs, end_delta) ->
-      advance putc st ~by:start_delta ~anchor ~unescaped_atom:false;
+      advance putc st ~by:start_delta ~anchor ~unescaped_atom:false ~line_comment:false;
       let child_anchor = Abs_pos.sub st.current st.row_shift in
       emit_char putc st '(';
       List.iter tocs ~f:(fun toc -> render_toc putc ~anchor:child_anchor st toc);
-      advance putc st ~by:end_delta ~anchor ~unescaped_atom:false;
+      advance putc st ~by:end_delta ~anchor ~unescaped_atom:false ~line_comment:false;
       emit_char putc st ')';
       ()
 
@@ -131,10 +139,11 @@ module Render = struct
 
   and render_c putc ~anchor st = function
     | Plain_comment (delta, text) ->
-      advance putc st ~by:delta ~anchor ~unescaped_atom:false;
+      let line_comment = String.length text > 0 && text.[0] = ';' in
+      advance putc st ~by:delta ~anchor ~unescaped_atom:false ~line_comment;
       emit_string putc st text
     | Sexp_comment (delta, cs, t) ->
-      advance putc st ~by:delta ~anchor ~unescaped_atom:false;
+      advance putc st ~by:delta ~anchor ~unescaped_atom:false ~line_comment:false;
       emit_string putc st "#;";
       List.iter cs ~f:(render_c putc ~anchor st);
       render_t putc ~anchor st t
@@ -179,4 +188,3 @@ module Forget = struct
   let t_or_comment  x = Cps.forget_toc  x (fun y -> y)
   let t_or_comments x = Cps.forget_tocs x (fun y -> y)
 end
-

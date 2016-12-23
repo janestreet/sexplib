@@ -1,4 +1,5 @@
 open Sexplib
+open Sexplib.Std
 module With_layout = Sexp.With_layout
 open Test_common
 
@@ -137,4 +138,28 @@ let%test_unit _ =
   test_printer ();
   if !failures <> 0
   then failwith (Printf.sprintf "%d / %d tests failed\n%!" !failures !total)
+;;
+
+let%test_unit _ =
+  let sexps =
+    let open With_layout in
+    [ Comment (Plain_comment ({row=0;col=2}, "; c"))
+    ; Sexp (Atom ({row=0;col=6}, "not-a-comment", None))]
+  in
+  let str = string_of_sexps_with_layout sexps in
+  [%test_result: string]
+    ~expect:"  ; c\n      not-a-comment"
+    str
+;;
+
+let%test_unit _ =
+  let sexps =
+    let open With_layout in
+    [ Comment (Plain_comment ({row=0;col=2}, "; c"))
+    ; Sexp (Atom ({row=2;col=6}, "not-a-comment", None))]
+  in
+  let str = string_of_sexps_with_layout sexps in
+  [%test_result: string]
+    ~expect:"  ; c\n\n      not-a-comment"
+    str
 ;;

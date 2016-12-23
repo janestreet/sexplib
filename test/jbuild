@@ -2,4 +2,4 @@
 ;; sexplib on ppx_inline_test.
 (library
  ((name sexplib_ounit_tests)
-  (libraries (sexplib str))))
+  (libraries (sexplib str unix))))
