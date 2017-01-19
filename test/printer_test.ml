@@ -1,3 +1,4 @@
+open Ppx_compare_lib.Builtin
 open Sexplib
 open Sexplib.Std
 module With_layout = Sexp.With_layout
