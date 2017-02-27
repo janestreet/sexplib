@@ -3,3 +3,5 @@
   (public_name sexplib.num)
   (libraries (num sexplib))
   (preprocess no_preprocessing)))
+
+(jbuild_version jane_street)

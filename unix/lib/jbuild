@@ -3,3 +3,5 @@
   (public_name sexplib.unix)
   (libraries (sexplib unix))
   (preprocess no_preprocessing)))
+
+(jbuild_version jane_street)

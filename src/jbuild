@@ -7,3 +7,5 @@
 
 (ocamllex (lexer))
 (ocamlyacc (parser parser_with_layout))
+
+(jbuild_version jane_street)

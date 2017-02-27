@@ -3,3 +3,5 @@
 (library
  ((name sexplib_ounit_tests)
   (libraries (sexplib str unix))))
+
+(jbuild_version jane_street)
