@@ -2,6 +2,7 @@
 ;; sexplib on ppx_inline_test.
 (library
  ((name sexplib_ounit_tests)
-  (libraries (sexplib str unix))))
+  (libraries (sexplib str unix))
+  (preprocess (pps (ppx_jane)))))
 
 (jbuild_version jane_street)
