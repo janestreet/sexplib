@@ -1,7 +1,7 @@
 ## v0.9.1 (27/03/2017)
 
-- Switch from `base` to `base.sexplib0`, so that linking with
-  `sexplib` doesn't link all of `base`
+- Re-import the code split out from Sexplib into Base as
+  sexplib0. Remove the Base dependency
 
 ## v0.9.0
 

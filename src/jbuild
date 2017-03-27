@@ -1,6 +1,6 @@
 (library
  ((name sexplib)
-  (libraries (bigarray base.sexplib0))
+  (libraries (bigarray sexplib0))
   (public_name sexplib)
   (preprocess (per_file ((action (system "${PA_CPP} ${<}")) (pre_sexp))))
 ))
