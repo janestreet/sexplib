@@ -1,3 +1,12 @@
+## v0.9.1 (27/03/2017)
+
+- Switch from `base` to `base.sexplib0`, so that linking with
+  `sexplib` doesn't link all of `base`
+
+## v0.9.0
+
+no changelog available at this time
+
 ## 113.43.00
 
 - Sexps and EOF are a mess. Try to improve the situation somewhat!
