@@ -2,9 +2,9 @@
 
 open Format
 open Bigarray
-module Sexplib = Base.Exported_for_specific_uses.Sexplib
-module Conv = Sexplib.Conv (* conv.ml depends on us so we can
-                                    only use this module *)
+module Sexplib = Sexplib0
+module Conv = Sexplib.Sexp_conv (* conv.ml depends on us so we can
+                                   only use this module *)
 
 module String = Bytes
 
@@ -13,7 +13,27 @@ include Type
 type bigstring = (char, int8_unsigned_elt, c_layout) Array1.t
 include (Sexplib.Sexp : module type of struct include Sexplib.Sexp end with type t := t)
 include Private
-let compare = Sexplib.Sexp.compare
+
+let rec compare_list compare_elt a b =
+  match a, b with
+  | [] , [] -> 0
+  | [] , _  -> -1
+  | _  , [] -> 1
+  | x::xs, y::ys ->
+    let res = compare_elt x y in
+    if res <> 0 then res
+    else compare_list compare_elt xs ys
+
+let rec compare a b =
+  if a == b then
+    0
+  else
+    match a, b with
+    | Atom a, Atom b -> String.compare a b
+    | Atom _, _ -> -1
+    | _, Atom _ -> 1
+    | List a, List b ->
+      compare_list compare a b
 
 (* Output of S-expressions to I/O-channels *)
 
