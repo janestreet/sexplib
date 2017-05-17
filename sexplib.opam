@@ -12,7 +12,7 @@ depends: [
   "base"
   "jbuilder" {build & >= "1.0+beta8"}
 ]
-available: [ ocaml-version >= "4.03.0" ]
+available: [ ocaml-version >= "4.04.1" ]
 descr: "
 Library for serializing OCaml values to and from S-expressions
 
