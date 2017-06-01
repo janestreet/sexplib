@@ -1146,6 +1146,10 @@ let of_bigstring_conv_exn bstr f = gen_of_string_conv_exn of_bigstring bstr f
 
 let unit = List []
 
+let is_unit = function
+  | List [] -> true
+  | _       -> false
+
 external sexp_of_t : t -> t = "%identity"
 external t_of_sexp : t -> t = "%identity"
 

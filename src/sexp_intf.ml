@@ -574,6 +574,8 @@ module type S = sig
   val unit : t
   (** [unit] the unit-value as expressed by an S-expression. *)
 
+  val is_unit : t -> bool
+
   val sexp_of_t : t -> t
   (** [sexp_of_t sexp] maps S-expressions which are part of a type with
       automated S-expression conversion to themselves. *)
