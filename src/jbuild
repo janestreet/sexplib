@@ -2,7 +2,7 @@
  ((name sexplib)
   (libraries (bigarray sexplib0))
   (public_name sexplib)
-  (preprocess (per_file ((action (system "${PA_CPP} ${<}")) (pre_sexp))))
+  (preprocess (per_module ((action (system "${PA_CPP} ${<}")) (pre_sexp))))
 ))
 
 (ocamllex (lexer))

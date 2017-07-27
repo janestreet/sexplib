@@ -1,3 +1,8 @@
+## v0.9.2
+
+- `per_file` --> `per_module` in jbuild files
+
+
 ## v0.9.1 (27/03/2017)
 
 - Re-import the code split out from Sexplib into Base as
