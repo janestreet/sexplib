@@ -10,7 +10,7 @@ build: [
 ]
 depends: [
   "base"
-  "jbuilder" {build & >= "1.0+beta8"}
+  "jbuilder" {build & >= "1.0+beta12"}
 ]
 available: [ ocaml-version >= "4.04.1" ]
 descr: "
