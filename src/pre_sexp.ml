@@ -6,8 +6,6 @@ module Sexplib = Sexplib0
 module Conv = Sexplib.Sexp_conv (* conv.ml depends on us so we can
                                    only use this module *)
 
-module String = Bytes
-
 include Type
 
 type bigstring = (char, int8_unsigned_elt, c_layout) Array1.t
@@ -874,17 +872,16 @@ let feed_end_of_input ~this_parse ~ws_buf =
   | Cont (cont_state, _) -> Error cont_state
 
 let gen_input_sexp my_parse ?parse_pos ic =
-  let buf = String.create 1 in
+  let buf = Bytes.create 1 in
   let rec loop this_parse =
     match input_char ic with
     | exception End_of_file ->
-      (buf.[0] <- ' ';
-       match feed_end_of_input ~this_parse ~ws_buf:buf with
+      (match feed_end_of_input ~this_parse ~ws_buf:" " with
        | Ok sexp -> sexp
        | Error _ -> raise End_of_file)
     | c ->
-      buf.[0] <- c;
-      match this_parse ~pos:0 ~len:1 buf with
+      Bytes.set buf 0 c;
+      match this_parse ~pos:0 ~len:1 (Bytes.unsafe_to_string buf) with
       | Done (sexp, _) -> sexp
       | Cont (_, this_parse) -> loop this_parse
   in
@@ -892,12 +889,12 @@ let gen_input_sexp my_parse ?parse_pos ic =
 
 let input_sexp ?parse_pos ic = gen_input_sexp parse ?parse_pos ic
 
-let gen_input_rev_sexps my_parse ~ws_buf ?parse_pos ?(buf = String.create 8192) ic =
+let gen_input_rev_sexps my_parse ~ws_buf ?parse_pos ?(buf = Bytes.create 8192) ic =
   let rev_sexps_ref = ref [] in
-  let buf_len = String.length buf in
+  let buf_len = Bytes.length buf in
   let rec loop this_parse ~pos ~len =
     if len > 0 then
-      match this_parse ~pos ~len buf with
+      match this_parse ~pos ~len (Bytes.unsafe_to_string buf) with
       | Done (sexp, ({ Parse_pos.buf_pos; _ } as parse_pos)) ->
         rev_sexps_ref := sexp :: !rev_sexps_ref;
         let n_parsed = buf_pos - pos in
@@ -964,9 +961,9 @@ let of_string str =
   of_string_bigstring "of_string" parse " " String.length String.sub str
 
 let get_bstr_sub_str bstr pos len =
-  let str = String.create len in
-  for i = 0 to len - 1 do str.[i] <- bstr.{pos + i} done;
-  str
+  let str = Bytes.create len in
+  for i = 0 to len - 1 do Bytes.set str i bstr.{pos + i} done;
+  Bytes.unsafe_to_string str
 
 let bstr_ws_buf = Array1.create char c_layout 1
 let () = bstr_ws_buf.{0} <- ' '
@@ -994,8 +991,8 @@ let load_sexps ?buf file = List.rev (load_rev_sexps ?buf file)
 
 let gen_load_sexp_loc = "Sexplib.Sexp.gen_load_sexp"
 
-let gen_load_sexp my_parse ?(strict = true) ?(buf = String.create 8192) file =
-  let buf_len = String.length buf in
+let gen_load_sexp my_parse ?(strict = true) ?(buf = Bytes.create 8192) file =
+  let buf_len = Bytes.length buf in
   let ic = open_in file in
   let rec loop this_parse =
     let len = input ic buf 0 buf_len in
@@ -1007,10 +1004,10 @@ let gen_load_sexp my_parse ?(strict = true) ?(buf = String.create 8192) file =
           sprintf "%s: EOF in %s while in state %s"
             gen_load_sexp_loc file (Cont_state.to_string cont_state))
     else
-      match this_parse ~pos:0 ~len buf with
+      match this_parse ~pos:0 ~len (Bytes.unsafe_to_string buf) with
       | Done (sexp, ({ Parse_pos.buf_pos; _ } as parse_pos)) when strict ->
         let rec strict_loop this_parse ~pos ~len =
-            match this_parse ~pos ~len buf with
+            match this_parse ~pos ~len (Bytes.unsafe_to_string buf) with
             | Done _ ->
                 failwith (
                   sprintf "%s: more than one S-expression in file %s"

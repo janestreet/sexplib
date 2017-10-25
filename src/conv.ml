@@ -2,7 +2,6 @@ open Printf
 open Bigarray
 
 module Sexplib = Sexplib0
-module String = Bytes
 include Sexplib.Sexp_conv
 open Sexp
 
@@ -23,9 +22,9 @@ let sexp_of_float_vec vec =
 
 let sexp_of_bigstring (bstr : bigstring) =
   let n = Array1.dim bstr in
-  let str = String.create n in
-  for i = 0 to n - 1 do str.[i] <- bstr.{i} done;
-  Atom str
+  let str = Bytes.create n in
+  for i = 0 to n - 1 do Bytes.set str i bstr.{i} done;
+  Atom (Bytes.unsafe_to_string str)
 
 let sexp_of_float32_vec (vec : float32_vec) = sexp_of_float_vec vec
 let sexp_of_float64_vec (vec : float64_vec) = sexp_of_float_vec vec

@@ -37,54 +37,53 @@ module Printing = struct
     loop (len - 1)
 
   let escaped s =
-    let open String in
     let n = ref 0 in
-    for i = 0 to length s - 1 do
+    for i = 0 to String.length s - 1 do
       n := !n +
-           (match unsafe_get s i with
+           (match String.unsafe_get s i with
             | '\"' | '\\' | '\n' | '\t' | '\r' | '\b' -> 2
             | ' ' .. '~' -> 1
             | _ -> 4)
     done;
-    if !n = length s then copy s else begin
-      let s' = create !n in
+    if !n = String.length s then s else begin
+      let s' = Bytes.create !n in
       n := 0;
-      for i = 0 to length s - 1 do
-        begin match unsafe_get s i with
+      for i = 0 to String.length s - 1 do
+        begin match String.unsafe_get s i with
         | ('\"' | '\\') as c ->
-          unsafe_set s' !n '\\'; incr n; unsafe_set s' !n c
+          Bytes.unsafe_set s' !n '\\'; incr n; Bytes.unsafe_set s' !n c
         | '\n' ->
-          unsafe_set s' !n '\\'; incr n; unsafe_set s' !n 'n'
+          Bytes.unsafe_set s' !n '\\'; incr n; Bytes.unsafe_set s' !n 'n'
         | '\t' ->
-          unsafe_set s' !n '\\'; incr n; unsafe_set s' !n 't'
+          Bytes.unsafe_set s' !n '\\'; incr n; Bytes.unsafe_set s' !n 't'
         | '\r' ->
-          unsafe_set s' !n '\\'; incr n; unsafe_set s' !n 'r'
+          Bytes.unsafe_set s' !n '\\'; incr n; Bytes.unsafe_set s' !n 'r'
         | '\b' ->
-          unsafe_set s' !n '\\'; incr n; unsafe_set s' !n 'b'
-        | (' ' .. '~') as c -> unsafe_set s' !n c
+          Bytes.unsafe_set s' !n '\\'; incr n; Bytes.unsafe_set s' !n 'b'
+        | (' ' .. '~') as c -> Bytes.unsafe_set s' !n c
         | c ->
           let a = Char.code c in
-          unsafe_set s' !n '\\';
+          Bytes.unsafe_set s' !n '\\';
           incr n;
-          unsafe_set s' !n (Char.chr (48 + a / 100));
+          Bytes.unsafe_set s' !n (Char.chr (48 + a / 100));
           incr n;
-          unsafe_set s' !n (Char.chr (48 + (a / 10) mod 10));
+          Bytes.unsafe_set s' !n (Char.chr (48 + (a / 10) mod 10));
           incr n;
-          unsafe_set s' !n (Char.chr (48 + a mod 10));
+          Bytes.unsafe_set s' !n (Char.chr (48 + a mod 10));
         end;
         incr n
       done;
-      s'
+      Bytes.unsafe_to_string s'
     end
 
   let esc_str str =
     let estr = escaped str in
     let elen = String.length estr in
-    let res = String.create (elen + 2) in
-    String.blit ~src:estr ~src_pos:0 ~dst:res ~dst_pos:1 ~len:elen;
-    res.[0] <- '"';
-    res.[elen + 1] <- '"';
-    res
+    let res = Bytes.create (elen + 2) in
+    Bytes.blit_string ~src:estr ~src_pos:0 ~dst:res ~dst_pos:1 ~len:elen;
+    Bytes.unsafe_set res 0          '"';
+    Bytes.unsafe_set res (elen + 1) '"';
+    Bytes.unsafe_to_string res
 
   let index_of_newline str start =
     try Some (String.index_from str start '\n')
