@@ -9,7 +9,6 @@ build: [
   ["jbuilder" "build" "-p" name "-j" jobs]
 ]
 depends: [
-  "base"
   "jbuilder" {build & >= "1.0+beta12"}
   "num"
 ]

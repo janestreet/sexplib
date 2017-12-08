@@ -1,6 +1,6 @@
 (library
  ((name sexplib)
-  (libraries (bigarray base))
+  (libraries (bigarray sexplib0))
   (flags (:standard -safe-string))
   (public_name sexplib)
   (preprocess (per_module ((action (system "${PA_CPP} ${<}")) (pre_sexp))))
