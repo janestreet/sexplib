@@ -1,9 +1,9 @@
 (library
  ((name sexplib)
-  (libraries (bigarray base))
+  (libraries (bigarray base parsexp))
   (flags (:standard -safe-string))
   (public_name sexplib)
-  (preprocess (per_module ((action (system "${PA_CPP} ${<}")) (pre_sexp))))
+  (preprocess no_preprocessing)
 ))
 
 (ocamllex (lexer))

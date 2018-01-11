@@ -10,6 +10,7 @@ build: [
 ]
 depends: [
   "base"
+  "parsexp"
   "jbuilder" {build & >= "1.0+beta12"}
   "num"
 ]

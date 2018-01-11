@@ -408,7 +408,7 @@ module Make (Load : Load) = struct
       ~expect:["((Sexplib.Sexp.Annotated.Conv_exn
                 DIR/include.sexp:2:18
                 \"Exit\")
-                (trigger (:use err)) (expanded (trigger error)))"]
+     (trigger (:use err)) (expanded (trigger error)))"]
 
   let%test_unit "multiple conversion errors" =
     check_error_count ~f:conv_error ~expected_count:2
@@ -417,7 +417,7 @@ module Make (Load : Load) = struct
 
       ; "include.sexp"
       , "(:let err () error)
-         (foo bar (trigger (:use err)))" ]
+     (foo bar (trigger (:use err)))" ]
 
   let%test_unit _ =
     check_error
@@ -460,7 +460,7 @@ module Make (Load : Load) = struct
 
       ; "include.sexp"
       , "(" ]
-      ~expect:["DIR/include.sexp"]
+    ~expect:["DIR/include.sexp"]
 end
 
 module M = Make (Macro)

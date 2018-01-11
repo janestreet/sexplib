@@ -136,8 +136,8 @@ let scan_sexps_conv ?buf ~f lexbuf =
 (* Partial parsing *)
 
 module Annot = struct
-  type pos = { line : int; col : int; offset : int }
-  type range = { start_pos : pos; end_pos : pos }
+  type pos = Parsexp.Positions.pos = { line : int; col : int; offset : int }
+  type range = Parsexp.Positions.range = { start_pos : pos; end_pos : pos }
   type t = Atom of range * Type.t | List of range * t list * Type.t
   type 'a conv = [ `Result of 'a | `Error of exn * t ]
 
@@ -199,7 +199,7 @@ module Parse_pos = struct
 end
 
 module Cont_state = struct
-  type t =
+  type t = Parsexp.Private.Parser_automaton.Old_parser_cont_state.t =
     | Parsing_toplevel_whitespace
     | Parsing_nested_whitespace
     | Parsing_atom
@@ -265,571 +265,220 @@ let () =
         ]
       | _ -> assert false)
 
-let bump_text_line { parse_pos; _ } =
-  parse_pos.Parse_pos.text_line <- parse_pos.Parse_pos.text_line + 1;
-  parse_pos.Parse_pos.text_char <- 0
+module Parser_output : sig
 
-let bump_text_pos { parse_pos; _ } =
-  parse_pos.Parse_pos.text_char <- parse_pos.Parse_pos.text_char + 1
+  module type T = sig
+    module Impl : Parsexp.Eager_parser
+    type output
+    exception Found of output
+    val raise_found : Impl.State.Read_only.t -> Impl.parsed_value -> unit
+  end
 
-let bump_pos_cont state str ~max_pos ~pos cont =
-  bump_text_pos state;
-  cont state str ~max_pos ~pos:(pos + 1)
+  module Bare_sexp : T with type output = Type.t
 
-let bump_line_cont state str ~max_pos ~pos cont =
-  bump_text_line state;
-  cont state str ~max_pos ~pos:(pos + 1)
+  module Annotated_sexp : T with type output = Annot.t
 
-let add_bump bump state str ~max_pos ~pos c cont =
-  Buffer.add_char state.pbuf c;
-  bump state;
-  cont state str ~max_pos ~pos:(pos + 1)
+end = struct
 
-let add_bump_pos state str ~max_pos ~pos c cont =
-  add_bump bump_text_pos state str ~max_pos ~pos c cont
+  module type T = sig
+    module Impl : Parsexp.Eager_parser
+    type output
+    exception Found of output
+    val raise_found : Impl.State.Read_only.t -> Impl.parsed_value -> unit
+  end
 
-let add_bump_line state str ~max_pos ~pos c cont =
-  add_bump bump_text_line state str ~max_pos ~pos c cont
+  module I = Parsexp.Positions.Iterator
 
-let set_parse_pos parse_pos buf_pos =
-  let len = buf_pos - parse_pos.Parse_pos.buf_pos in
-  parse_pos.Parse_pos.buf_pos <- buf_pos;
-  parse_pos.Parse_pos.global_offset <- parse_pos.Parse_pos.global_offset + len
+  let rec annotate_sexp sexp iter =
+    match sexp with
+    | Type.Atom _ ->
+      let start_pos = I.advance_exn iter ~skip:0 in
+      let end_pos   = I.advance_exn iter ~skip:0 in
+      Annot.Atom ({ start_pos; end_pos }, sexp)
+    | Type.List l ->
+      let start_pos = I.advance_exn iter ~skip:0 in
+      let annot = annotate_sexp_list l iter in
+      let end_pos = I.advance_exn iter ~skip:0 in
+      Annot.List ({ start_pos; end_pos }, annot, sexp)
 
-let mk_parse_pos { parse_pos; _ } buf_pos =
-  set_parse_pos parse_pos buf_pos;
-  parse_pos
+  and annotate_sexp_list sexps iter =
+    Base.List.map sexps ~f:(fun sexp -> annotate_sexp sexp iter)
 
-let raise_parse_error parse_state location buf_pos err_msg =
-  match parse_state with
-  | `Sexp { parse_pos; _ } | `Annot { parse_pos; _ } ->
-      set_parse_pos parse_pos buf_pos;
-      let parse_error = { location; err_msg; parse_state } in
-      raise (Parse_error parse_error)
+  module Bare_sexp = struct
+    module Impl = Parsexp.Eager
+    type output = Type.t
+    exception Found of output
+    let raise_found _state sexp =
+      raise_notrace (Found sexp)
+  end
 
-let raise_unexpected_char parse_state location buf_pos c =
-  let err_msg = sprintf "unexpected character: '%c'" c in
-  raise_parse_error parse_state location buf_pos err_msg
+  module Annotated_sexp = struct
+    module Impl = Parsexp.Eager_and_positions
+    type output = Annot.t
+    exception Found of output
+    let raise_found _state (sexp, positions) =
+      let annot = annotate_sexp sexp (I.create positions) in
+      raise_notrace (Found annot)
+  end
 
-let mk_cont_parser cont_parse = (); fun _state str ~max_pos ~pos ->
-  let len = max_pos - pos + 1 in
-  cont_parse ~pos ~len str
-
-module Safe_empty_parse = struct
-  (* A type indicating whether [eof] in a certain parser state should result in valid
-     parse of empty sexp list.
-
-     [True] means that it should be considered a valid empty parse,
-     [False] means that it should be considered an incomplete parse,
-     [Should_not_be_empty] means that this state will guarantee [pstack] or [pbuf]
-     are non-empty, so it's incomplete parse anyway.
-  *)
-  type t =
-    | True
-    | False
-    | Should_not_be_empty
 end
 
-(* Macro for generating parsers *)
-#define MK_PARSER( \
-    TYPE, GET_LEN, PARSE, GET_CHAR, \
-    GET_PSTACK, SET_PSTACK, \
-    REGISTER_POS, REGISTER_POS1, \
-    MK_ATOM, MK_LIST, INIT_PSTACK, MK_PARSE_STATE) \
-  let bump_found_atom bump state str ~max_pos ~pos cont = \
-    let pbuf = state.pbuf in \
-    let pbuf_str = Buffer.contents pbuf in \
-    let atom = MK_ATOM in \
-    match GET_PSTACK with \
-    | [] -> Done (atom, mk_parse_pos state pos) \
-    | rev_sexp_lst :: sexp_stack -> \
-        Buffer.clear pbuf; \
-        let pstack = (atom :: rev_sexp_lst) :: sexp_stack in \
-        SET_PSTACK; \
-        bump state; \
-        cont state str ~max_pos ~pos:(pos + 1) \
-  \
-  let check_str_bounds loc ~pos ~len (str : TYPE) = \
-    if pos < 0 then invalid_arg (loc ^ ": pos < 0"); \
-    if len < 0 then invalid_arg (loc ^ ": len < 0"); \
-    let str_len = GET_LEN str in \
-    let pos_len = pos + len in \
-    if pos_len > str_len then invalid_arg (loc ^ ": pos + len > str_len"); \
-    pos_len - 1 \
-  \
-  let mk_cont_state name cont state ~cont_state = \
-    let parse_fun = \
-      let used_ref = ref false in \
-      fun ~pos ~len str -> \
-        if !used_ref then \
-          failwith "Sexplib.Sexp: parser continuation called twice" \
-        else begin \
-          used_ref := true; \
-          let max_pos = check_str_bounds name ~pos ~len str in \
-          cont state str ~max_pos ~pos \
-        end \
-    in \
-    Cont (cont_state, parse_fun) \
-  \
-  let mk_cont name ~(eof_safe : Safe_empty_parse.t) cont state = \
-    let cont_state = \
-      match GET_PSTACK = [], Buffer.length state.pbuf = 0 with \
-      | true, true -> \
-        begin match eof_safe with \
-        | True -> Cont_state.Parsing_toplevel_whitespace \
-        | False -> Cont_state.Parsing_nested_whitespace \
-        | Should_not_be_empty -> \
-          failwith ("should never be parsing whitespace in "^ name) \
-        end \
-      | false, true -> Cont_state.Parsing_list \
-      | _, false -> Cont_state.Parsing_atom \
-    in \
-    mk_cont_state name cont state ~cont_state \
-  \
-  let rec PARSE state str ~max_pos ~pos = \
-    if pos > max_pos then mk_cont "parse" ~eof_safe:True PARSE state \
-    else \
-      match GET_CHAR with \
-      | '(' -> \
-          REGISTER_POS \
-          let pstack = [] :: GET_PSTACK in \
-          SET_PSTACK; \
-          bump_pos_cont state str ~max_pos ~pos PARSE \
-      | ')' as c -> \
-          (match GET_PSTACK with \
-          | [] -> raise_unexpected_char (MK_PARSE_STATE state) "parse" pos c \
-          | rev_sexp_lst :: sexp_stack -> \
-              let sexp_lst = List.rev rev_sexp_lst in \
-              let sexp = MK_LIST in \
-              match sexp_stack with \
-              | [] -> Done (sexp, mk_parse_pos state (pos + 1)) \
-              | higher_rev_sexp_lst :: higher_sexp_stack -> \
-                  let pstack = \
-                    (sexp :: higher_rev_sexp_lst) :: higher_sexp_stack \
-                  in \
-                  SET_PSTACK; \
-                  bump_pos_cont state str ~max_pos ~pos PARSE) \
-      | ' ' | '\009' | '\012' -> bump_pos_cont state str ~max_pos ~pos PARSE \
-      | '\010' -> bump_line_cont state str ~max_pos ~pos PARSE \
-      | '\013' -> bump_pos_cont state str ~max_pos ~pos parse_nl \
-      | ';' -> bump_pos_cont state str ~max_pos ~pos parse_comment \
-      | '"' -> \
-          REGISTER_POS1 \
-          bump_pos_cont state str ~max_pos ~pos parse_quoted \
-      | c -> \
-          REGISTER_POS \
-          let parse = \
-            match c with \
-            | '#' -> maybe_parse_comment \
-            | '|' -> maybe_parse_close_comment \
-            | _ -> parse_atom \
-          in \
-          add_bump_pos state str ~max_pos ~pos c parse \
-  \
-  and parse_nl state str ~max_pos ~pos = \
-    if pos > max_pos then mk_cont "parse_nl" ~eof_safe:False parse_nl state \
-    else \
-      let c = GET_CHAR in \
-      if c = '\010' then bump_line_cont state str ~max_pos ~pos PARSE \
-      else raise_unexpected_char (MK_PARSE_STATE state) "parse_nl" pos c \
-  \
-  and parse_comment state str ~max_pos ~pos = \
-    if pos > max_pos then mk_cont "parse_comment" ~eof_safe:True parse_comment state \
-    else \
-      match GET_CHAR with \
-      | '\010' -> bump_line_cont state str ~max_pos ~pos PARSE \
-      | '\013' -> bump_pos_cont state str ~max_pos ~pos parse_nl \
-      | _ -> bump_pos_cont state str ~max_pos ~pos parse_comment \
-  \
-  and maybe_parse_comment state str ~max_pos ~pos = \
-    if pos > max_pos then \
-      mk_cont "maybe_parse_comment" ~eof_safe:Should_not_be_empty maybe_parse_comment state \
-    else \
-      match GET_CHAR with \
-      | ';' -> bump_pos_cont state str ~max_pos ~pos parse_sexp_comment \
-      | '|' -> bump_pos_cont state str ~max_pos ~pos parse_block_comment \
-      | _ -> parse_atom state str ~max_pos ~pos \
-  \
-  and maybe_parse_close_comment state str ~max_pos ~pos = \
-    if pos > max_pos then \
-      mk_cont "maybe_parse_close_comment" ~eof_safe:Should_not_be_empty maybe_parse_close_comment state \
-    else \
-      if GET_CHAR <> '#' then parse_atom state str ~max_pos ~pos \
-      else \
-        let err_msg = "end of block comment without start" in \
-        raise_parse_error (MK_PARSE_STATE state) \
-          "maybe_parse_close_comment" pos err_msg \
-  \
-  and parse_sexp_comment state str ~max_pos ~pos = \
-    let pbuf_str = "" in \
-    ignore (MK_ATOM); \
-    Buffer.clear state.pbuf; \
-    let old_pstack = GET_PSTACK in \
-    let pstack = [] in \
-    SET_PSTACK; \
-    let rec loop parse state str ~max_pos ~pos = \
-      match parse state str ~max_pos ~pos with \
-      | Done (_sexp, { Parse_pos.buf_pos = pos; _ }) -> \
-          Buffer.clear state.pbuf; \
-          let pstack = old_pstack in \
-          SET_PSTACK; \
-          PARSE state str ~max_pos ~pos \
-      | Cont (_, cont_parse) -> \
-          Buffer.clear state.pbuf; \
-          let parse = mk_cont_parser cont_parse in \
-          mk_cont_state "parse_sexp_comment" (loop parse) state \
-            ~cont_state:Cont_state.Parsing_sexp_comment \
-    in \
-    loop PARSE state str ~max_pos ~pos \
-  \
-  and parse_block_comment state str ~max_pos ~pos = \
-    let pbuf_str = "" in \
-    ignore (MK_ATOM); \
-    Buffer.clear state.pbuf; \
-    let old_pstack = GET_PSTACK in \
-    let pstack = [] in \
-    SET_PSTACK; \
-    let rec loop depth state str ~max_pos ~pos = \
-      let rec parse_block_depth state str ~max_pos ~pos = \
-        if pos > max_pos then \
-          mk_cont "parse_block_depth" ~eof_safe:False parse_block_depth state \
-        else \
-          match GET_CHAR with \
-          | '\010' -> bump_line_cont state str ~max_pos ~pos parse_block_depth \
-          | '"' -> \
-              REGISTER_POS1 \
-              let rec parse_block_quote parse state str ~max_pos ~pos = \
-                match parse state str ~max_pos ~pos with \
-                | Done (_sexp, { Parse_pos.buf_pos = pos; _ }) -> \
-                    Buffer.clear state.pbuf; \
-                    parse_block_depth state str ~max_pos ~pos \
-                | Cont (_, cont_parse) -> \
-                    Buffer.clear state.pbuf; \
-                    let parse = mk_cont_parser cont_parse in \
-                    mk_cont_state "parse_block_quote" \
-                      (parse_block_quote parse) state \
-                      ~cont_state:Cont_state.Parsing_block_comment \
-              in \
-              bump_pos_cont state str ~max_pos ~pos \
-                (parse_block_quote parse_quoted) \
-          | '#' -> bump_pos_cont state str ~max_pos ~pos parse_open_block \
-          | '|' -> bump_pos_cont state str ~max_pos ~pos parse_close_block \
-          | _ -> bump_pos_cont state str ~max_pos ~pos parse_block_depth \
-      and parse_open_block state str ~max_pos ~pos = \
-        if pos > max_pos then \
-          mk_cont "parse_open_block" ~eof_safe:False parse_open_block state \
-        else \
-          if GET_CHAR = '|' then \
-            bump_pos_cont state str ~max_pos ~pos (loop (depth + 1)) \
-          else parse_block_depth state str ~max_pos ~pos \
-      and parse_close_block state str ~max_pos ~pos = \
-        if pos > max_pos then \
-          mk_cont "parse_close_block" ~eof_safe:False parse_close_block state \
-        else if GET_CHAR = '#' then \
-          let parse = \
-            if depth = 1 then \
-              let () = Buffer.clear state.pbuf in \
-              let pstack = old_pstack in \
-              SET_PSTACK; \
-              PARSE \
-            else loop (depth - 1) \
-          in \
-          bump_pos_cont state str ~max_pos ~pos parse \
-        else parse_block_depth state str ~max_pos ~pos \
-      in \
-      parse_block_depth state str ~max_pos ~pos \
-    in \
-    loop 1 state str ~max_pos ~pos \
-  \
-  and parse_atom state str ~max_pos ~pos = \
-    if pos > max_pos then mk_cont "parse_atom" ~eof_safe:Should_not_be_empty parse_atom state \
-    else \
-      match GET_CHAR with \
-      | ' ' | '\009' | '\012' -> \
-          bump_found_atom bump_text_pos state str ~max_pos ~pos PARSE \
-      | '#' as c -> \
-          add_bump_pos state str ~max_pos ~pos c maybe_parse_bad_atom_hash \
-      | '|' as c -> \
-          add_bump_pos state str ~max_pos ~pos c maybe_parse_bad_atom_pipe \
-      | '(' -> \
-          let pbuf = state.pbuf in \
-          let pbuf_str = Buffer.contents pbuf in \
-          let atom = MK_ATOM in \
-          (match GET_PSTACK with \
-          | [] -> Done (atom, mk_parse_pos state pos) \
-          | rev_sexp_lst :: sexp_stack -> \
-              REGISTER_POS \
-              Buffer.clear pbuf; \
-              let pstack = [] :: (atom :: rev_sexp_lst) :: sexp_stack in \
-              SET_PSTACK; \
-              bump_pos_cont state str ~max_pos ~pos PARSE) \
-      | ')' -> \
-          let pbuf = state.pbuf in \
-          let pbuf_str = Buffer.contents pbuf in \
-          let atom = MK_ATOM in \
-          (match GET_PSTACK with \
-          | [] -> Done (atom, mk_parse_pos state pos) \
-          | rev_sexp_lst :: sexp_stack -> \
-              let sexp_lst = List.rev_append rev_sexp_lst [atom] in \
-              let sexp = MK_LIST in \
-              match sexp_stack with \
-              | [] -> Done (sexp, mk_parse_pos state (pos + 1)) \
-              | higher_rev_sexp_lst :: higher_sexp_stack -> \
-                  Buffer.clear pbuf; \
-                  let pstack = \
-                    (sexp :: higher_rev_sexp_lst) :: higher_sexp_stack \
-                  in \
-                  SET_PSTACK; \
-                  bump_pos_cont state str ~max_pos ~pos PARSE) \
-      | '\010' -> bump_found_atom bump_text_line state str ~max_pos ~pos PARSE \
-      | '\013' -> \
-          bump_found_atom bump_text_pos state str ~max_pos ~pos parse_nl \
-      | ';' -> \
-          bump_found_atom bump_text_pos state str ~max_pos ~pos parse_comment \
-      | '"' -> \
-          bump_found_atom \
-            bump_text_pos state str ~max_pos ~pos reg_parse_quoted \
-      | c -> \
-          (* This is [add_bump_pos state str ~max_pos ~pos c parse_atom] inlined by \
-             hand, see https://github.com/janestreet/sexplib/pull/14 for details: *) \
-          Buffer.add_char state.pbuf c; \
-          bump_text_pos state; \
-          parse_atom state str ~max_pos ~pos:(pos + 1) \
-  \
-  and maybe_parse_bad_atom_pipe state str ~max_pos ~pos = \
-    if pos > max_pos then \
-      mk_cont "maybe_parse_bad_atom_pipe" \
-        ~eof_safe:Should_not_be_empty maybe_parse_bad_atom_pipe state \
-    else \
-      match GET_CHAR with \
-      | '#' -> \
-          let err_msg = "illegal end of block comment in unquoted atom" in \
-          raise_parse_error (MK_PARSE_STATE state) "maybe_parse_bad_atom_pipe" \
-            pos err_msg \
-      | _ -> parse_atom state str ~max_pos ~pos \
-  \
-  and maybe_parse_bad_atom_hash state str ~max_pos ~pos = \
-    if pos > max_pos then \
-      mk_cont "maybe_parse_bad_atom_hash" \
-        ~eof_safe:Should_not_be_empty maybe_parse_bad_atom_hash state \
-    else \
-      match GET_CHAR with \
-      | '|' -> \
-          let err_msg = "illegal start of block comment in unquoted atom" in \
-          raise_parse_error (MK_PARSE_STATE state) "maybe_parse_bad_atom_hash" \
-            pos err_msg \
-      | _ -> parse_atom state str ~max_pos ~pos \
-  \
-  and reg_parse_quoted state str ~max_pos ~pos = \
-    REGISTER_POS \
-    parse_quoted state str ~max_pos ~pos \
-  \
-  and parse_quoted state str ~max_pos ~pos = \
-    if pos > max_pos then mk_cont "parse_quoted" ~eof_safe:False parse_quoted state \
-    else \
-      match GET_CHAR with \
-      | '"' -> \
-          let pbuf = state.pbuf in \
-          let pbuf_str = Buffer.contents pbuf in \
-          let atom = MK_ATOM in \
-          (match GET_PSTACK with \
-          | [] -> Done (atom, mk_parse_pos state (pos + 1)) \
-          | rev_sexp_lst :: sexp_stack -> \
-              Buffer.clear pbuf; \
-              let pstack = (atom :: rev_sexp_lst) :: sexp_stack in \
-              SET_PSTACK; \
-              bump_pos_cont state str ~max_pos ~pos PARSE) \
-      | '\\' -> bump_pos_cont state str ~max_pos ~pos parse_escaped \
-      | '\010' as c -> add_bump_line state str ~max_pos ~pos c parse_quoted \
-      | c -> \
-          (* This is [add_bump_pos state str ~max_pos ~pos c parse_quoted] inlined by \
-             hand, see https://github.com/janestreet/sexplib/pull/14 for details: *) \
-          Buffer.add_char state.pbuf c; \
-          bump_text_pos state; \
-          parse_quoted state str ~max_pos ~pos:(pos + 1) \
-  \
-  and parse_escaped state str ~max_pos ~pos = \
-    if pos > max_pos then mk_cont "parse_escaped" ~eof_safe:False parse_escaped state \
-    else \
-      match GET_CHAR with \
-      | '\010' -> bump_line_cont state str ~max_pos ~pos parse_skip_ws \
-      | '\013' -> bump_pos_cont state str ~max_pos ~pos parse_skip_ws_nl \
-      | '0' .. '9' as c -> \
-          bump_text_pos state; \
-          let d = Char.code c - 48 in \
-          parse_dec state str ~max_pos ~pos:(pos + 1) ~count:2 ~d \
-      | 'x' -> \
-          bump_text_pos state; \
-          parse_hex state str ~max_pos ~pos:(pos + 1) ~count:2 ~d:0 \
-      | ('\\' | '"' | '\'' ) as c -> \
-          add_bump_pos state str ~max_pos ~pos c parse_quoted \
-      | 'n' -> add_bump_pos state str ~max_pos ~pos '\n' parse_quoted \
-      | 't' -> add_bump_pos state str ~max_pos ~pos '\t' parse_quoted \
-      | 'b' -> add_bump_pos state str ~max_pos ~pos '\b' parse_quoted \
-      | 'r' -> add_bump_pos state str ~max_pos ~pos '\r' parse_quoted \
-      | c -> \
-          Buffer.add_char state.pbuf '\\'; \
-          add_bump_pos state str ~max_pos ~pos c parse_quoted \
-  \
-  and parse_skip_ws state str ~max_pos ~pos = \
-    if pos > max_pos then mk_cont "parse_skip_ws" ~eof_safe:False parse_skip_ws state \
-    else \
-      match GET_CHAR with \
-      | ' ' | '\009' -> bump_pos_cont state str ~max_pos ~pos parse_skip_ws \
-      | _ -> parse_quoted state str ~max_pos ~pos \
-  \
-  and parse_skip_ws_nl state str ~max_pos ~pos = \
-      if pos > max_pos then \
-        mk_cont "parse_skip_ws_nl" ~eof_safe:False parse_skip_ws_nl state \
-    else \
-      if GET_CHAR = '\010' then \
-        bump_line_cont state str ~max_pos ~pos parse_skip_ws \
-      else begin \
-        Buffer.add_char state.pbuf '\013'; \
-        parse_quoted state str ~max_pos ~pos \
-      end \
-  \
-  and parse_dec state str ~max_pos ~pos ~count ~d = \
-    if pos > max_pos then mk_cont "parse_dec" ~eof_safe:False (parse_dec ~count ~d) state \
-    else \
-      match GET_CHAR with \
-      | '0' .. '9' as c -> \
-          let d = 10 * d + Char.code c - 48 in \
-          if count = 1 then \
-            if d > 255 then \
-              let err_msg = sprintf "illegal decimal escape: \\%d" d in \
-              raise_parse_error (MK_PARSE_STATE state) "parse_dec" pos err_msg \
-            else \
-              add_bump_pos state str ~max_pos ~pos (Char.chr d) parse_quoted \
-          else ( \
-            bump_text_pos state; \
-            parse_dec state str ~max_pos ~pos:(pos + 1) ~count:(count - 1) ~d) \
-      | c -> raise_unexpected_char (MK_PARSE_STATE state) "parse_dec" pos c \
-  \
-  and parse_hex state str ~max_pos ~pos ~count ~d = \
-    if pos > max_pos then mk_cont "parse_hex" ~eof_safe:False (parse_hex ~count ~d) state \
-    else \
-      match GET_CHAR with \
-      | '0' .. '9' | 'a' .. 'f' | 'A' .. 'F' as c -> \
-          let corr = \
-            if c >= 'a' then 87 \
-            else if c >= 'A' then 55 \
-            else 48 \
-          in \
-          let d = 16 * d + Char.code c - corr in \
-          if count = 1 then \
-            if d > 255 then \
-              let err_msg = sprintf "illegal hexadecimal escape: \\%x" d in \
-              raise_parse_error (MK_PARSE_STATE state) "parse_hex" pos err_msg \
-            else \
-              add_bump_pos state str ~max_pos ~pos (Char.chr d) parse_quoted \
-          else ( \
-            bump_text_pos state; \
-            parse_hex state str ~max_pos ~pos:(pos + 1) ~count:(count - 1) ~d) \
-      | c -> raise_unexpected_char (MK_PARSE_STATE state) "parse_hex" pos c \
-  \
-  let PARSE ?(parse_pos = Parse_pos.create ()) ?len str = \
-    let pos = parse_pos.Parse_pos.buf_pos in \
-    let len = \
-      match len with \
-      | Some len -> len \
-      | None -> GET_LEN str - pos \
-    in \
-    let max_pos = check_str_bounds "parse" ~pos ~len str in \
-    let state = \
-      { \
-        parse_pos; \
-        pstack = INIT_PSTACK; \
-        pbuf = Buffer.create 128; \
-      } \
-    in \
-    PARSE state str ~max_pos ~pos
+module Make_parser (T : sig
+    include Parser_output.T
+    type input
+    val length : input -> int
+    val unsafe_feed_loop
+      :  Impl.State.t
+      -> Impl.Stack.t
+      -> input
+      -> max_pos:int
+      -> pos:int
+      -> Impl.Stack.t
+  end) : sig
+  val parse
+     : ?parse_pos:Parse_pos.t
+    -> ?len:int
+    -> T.input
+    -> (T.input, T.output) parse_result
+ end = struct
 
-MK_PARSER(
-  string, String.length, parse_str, String.get str pos,
-  state.pstack, state.pstack <- pstack,
-  ,,
-  Atom pbuf_str, List sexp_lst, [], `Sexp
-)
+  let parse_pos_of_state state buf_pos =
+    { Parse_pos.text_line     = T.Impl.State.line   state;
+      Parse_pos.text_char     = T.Impl.State.column state;
+      Parse_pos.global_offset = T.Impl.State.offset state;
+      Parse_pos.buf_pos       = buf_pos; }
 
-let parse = parse_str
+  let check_str_bounds ~pos ~len str =
+    if pos < 0 then invalid_arg "parse: pos < 0";
+    if len < 0 then invalid_arg "parse: len < 0";
+    let str_len = T.length str in
+    let pos_len = pos + len in
+    if pos_len > str_len then invalid_arg "parse: pos + len > str_len";
+    pos_len - 1
 
-(* Annot parsers *)
+  let raise_parse_error state pos msg =
+    let parse_state =
+      { parse_pos = parse_pos_of_state state pos
+        (* both pstack and pbuf are unused,
+           and will be removed in an upcoming feature *)
+      ; pstack    = []
+      ; pbuf      = Buffer.create 0
+      }
+    in
+    let parse_error =
+      { location    = "feed"
+      ; err_msg     = msg
+      ; parse_state = `Sexp parse_state
+      }
+    in
+    raise (Parse_error parse_error)
 
-let get_glob_ofs parse_pos pos =
-  parse_pos.Parse_pos.global_offset + pos - parse_pos.Parse_pos.buf_pos
+  let handle_parsexp_error state pos e =
+    let open Parsexp.Private.Parser_automaton in
+    let msg = Error.message e in
+    match Error.old_parser_exn e with
+    | `Parse_error -> raise_parse_error state pos msg
+    | `Failure     -> failwith                    msg
 
-let mk_annot_pos
-      ({ Parse_pos.text_line = line; text_char = col; _ } as parse_pos) pos =
-  { Annot.line; col; offset = get_glob_ofs parse_pos pos }
+  let rec run_feed_loop state stack ~pos ~len str =
+    let max_pos = check_str_bounds ~pos ~len str in
+    let previous_offset = T.Impl.State.offset state in
+    match T.unsafe_feed_loop state stack str ~max_pos ~pos with
+    | stack -> mk_cont_state state stack
+    | exception T.Found result ->
+      let offset = T.Impl.State.offset state in
+      let next_pos = pos + (offset - previous_offset) in
+      Done (result, parse_pos_of_state state next_pos)
+    | exception Parsexp.Private.Parser_automaton.Parse_error err ->
+      handle_parsexp_error state (pos + (T.Impl.State.offset state - previous_offset)) err
 
-let mk_annot_pos1
-      ({ Parse_pos.text_line = line; text_char = col; _ } as parse_pos) pos =
-  { Annot.line; col = col + 1; offset = get_glob_ofs parse_pos pos }
+  and mk_cont_state state stack =
+    let parse_fun =
+      let used_ref = ref false in
+      fun ~pos ~len str ->
+        if !used_ref
+        then failwith "Sexplib.Sexp: parser continuation called twice"
+        else begin
+          used_ref := true;
+          run_feed_loop state stack ~pos ~len str
+        end
+    in
+    let cont_state = T.Impl.State.old_parser_cont_state state in
+    Cont (cont_state, parse_fun)
 
-let add_annot_pos { parse_pos; pstack; pbuf = _ } pos =
-  pstack.Annot.positions <- mk_annot_pos parse_pos pos :: pstack.Annot.positions
+  let parse ?(parse_pos = Parse_pos.create ()) ?len str =
+    let pos, buf_pos =
+      let { Parse_pos.text_line; text_char; global_offset; buf_pos; } = parse_pos in
+      { Parsexp.Positions.
+        line   = text_line
+      ; col    = text_char
+      ; offset = global_offset
+      },
+      buf_pos
+    in
+    let state = T.Impl.State.create ~pos ~no_sexp_is_error:false T.raise_found in
+    let stack = T.Impl.Stack.empty in
+    let len =
+      match len with
+      | Some x -> x
+      | None   -> T.length str - buf_pos
+    in
+    run_feed_loop state stack str ~pos:buf_pos ~len
 
-let add_annot_pos1 { parse_pos; pstack; pbuf = _ } pos =
-  pstack.Annot.positions <-
-    mk_annot_pos1 parse_pos pos :: pstack.Annot.positions
+end[@@inline always]
 
-let get_annot_range { parse_pos; pstack; pbuf = _ } pos =
-  let start_pos =
-    match pstack.Annot.positions with
-    | [] -> assert false  (* impossible *)
-    | h :: t -> pstack.Annot.positions <- t; h
-  in
-  let end_pos =
-    {
-      Annot.
-      line = parse_pos.Parse_pos.text_line;
-      col = parse_pos.Parse_pos.text_char;
-      offset = get_glob_ofs parse_pos pos;
-    }
-  in
-  { Annot.start_pos; end_pos }
+module String_single_sexp = Make_parser (struct
+    include Parser_output.Bare_sexp
+    type input = string
+    let length = String.length
+    let rec unsafe_feed_loop state stack str ~max_pos ~pos =
+      if pos <= max_pos then begin
+        let stack = Impl.feed state (String.unsafe_get str pos) stack in
+        unsafe_feed_loop state stack str ~max_pos ~pos:(pos + 1)
+      end else
+        stack
+  end)
+let parse_str = String_single_sexp.parse
+let parse = String_single_sexp.parse
 
-let mk_annot_atom parse_state str pos =
-  Annot.Atom (get_annot_range parse_state pos, Atom str)
+module String_single_annot = Make_parser (struct
+    include Parser_output.Annotated_sexp
+    type input = string
+    let length = String.length
+    let rec unsafe_feed_loop state stack str ~max_pos ~pos =
+      if pos <= max_pos then begin
+        let stack = Impl.feed state (String.unsafe_get str pos) stack in
+        unsafe_feed_loop state stack str ~max_pos ~pos:(pos + 1)
+      end else
+        stack
+  end)
+let parse_str_annot = String_single_annot.parse
 
-let mk_annot_list parse_state annot_lst pos =
-  let range = get_annot_range parse_state pos in
-  let sexp = List (List.rev (List.rev_map Annot.get_sexp annot_lst)) in
-  Annot.List (range, annot_lst, sexp)
+module Bigstring_single_sexp = Make_parser (struct
+    include Parser_output.Bare_sexp
+    type input = bigstring
+    let length = Array1.dim
+    let rec unsafe_feed_loop state stack (str : input) ~max_pos ~pos =
+      if pos <= max_pos then begin
+        let stack = Impl.feed state (Array1.unsafe_get str pos) stack in
+        unsafe_feed_loop state stack str ~max_pos ~pos:(pos + 1)
+      end else
+        stack
+  end)
+let parse_bigstring = Bigstring_single_sexp.parse
 
-let init_annot_pstate () = { Annot.positions = []; stack = [] }
-
-MK_PARSER(
-  string, String.length, parse_str_annot, String.get str pos,
-  state.pstack.Annot.stack, state.pstack.Annot.stack <- pstack,
-  add_annot_pos state pos;,add_annot_pos1 state pos;,
-  mk_annot_atom state pbuf_str pos, mk_annot_list state sexp_lst pos,
-  init_annot_pstate (), `Annot
-)
-
-
-(* Partial parsing from bigstrings *)
-
-(* NOTE: this is really an awful duplication of the code for parsing
-   strings, but since OCaml does not inline higher-order functions known
-   at compile, other solutions would sacrifice a lot of efficiency. *)
-
-MK_PARSER(
-  bigstring, Array1.dim, parse_bigstring, str.{pos},
-  state.pstack, state.pstack <- pstack,
-  ,,
-  Atom pbuf_str, List sexp_lst, [], `Sexp
-)
-
-MK_PARSER(
-  bigstring, Array1.dim, parse_bigstring_annot, str.{pos},
-  state.pstack.Annot.stack, state.pstack.Annot.stack <- pstack,
-  add_annot_pos state pos;,add_annot_pos1 state pos;,
-  mk_annot_atom state pbuf_str pos, mk_annot_list state sexp_lst pos,
-  init_annot_pstate (), `Annot
-)
-
+module Bigstring_single_annot = Make_parser (struct
+    include Parser_output.Annotated_sexp
+    type input = bigstring
+    let length = Array1.dim
+    let rec unsafe_feed_loop state stack (str : input) ~max_pos ~pos =
+      if pos <= max_pos then begin
+        let stack = Impl.feed state (Array1.unsafe_get str pos) stack in
+        unsafe_feed_loop state stack str ~max_pos ~pos:(pos + 1)
+      end else
+        stack
+  end)
+let parse_bigstring_annot = Bigstring_single_annot.parse
 
 (* Input functions *)
 

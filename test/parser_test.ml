@@ -13,69 +13,69 @@ let sexp_of_layout_sexps_or_something sexps_with_layout =
     (* this is an error, but returning something is more effective for debug *)
     Sexp.List (
       Sexp.List sexps ::
-        Sexp.List (sexps_of_layout_sexps sexps_with_layout) ::
-        []
+      Sexp.List (sexps_of_layout_sexps sexps_with_layout) ::
+      []
     )
 
 let parsers = [
   Sexp.of_string, "cont";
   (fun s ->
-    (* feeding the characters to the parse function one by one to make sure the cont_state
-       machinery is working fine *)
-    let pos = 0 in
-    match Sexp.parse ~len:1 s with
-    | Sexp.Done (t, _) -> t
-    | Sexp.Cont (cont_state, parse_fun) ->
-      let rec aux parse_fun pos =
-        assert (pos < String.length s);
-        match parse_fun ~pos ~len:1 s with
-        | Sexp.Done (t, _) ->
-          if pos + 1 = String.length s then t
-          else failwith "Should have reached the end1"
-        | Sexp.Cont (cont_state, parse_fun) ->
-          aux_cont pos cont_state parse_fun
-      and aux_cont pos cont_state parse_fun =
-        if pos + 1 = String.length s then
-          match cont_state with
-          | Sexp.Cont_state.Parsing_atom -> begin
-            match parse_fun ~pos:0 ~len:1 " " with
-            | Sexp.Done (t, _) -> t
-            | Sexp.Cont (Sexp.Cont_state.Parsing_atom, _) ->
-              failwith "incomplete quoted atom"
-            | Sexp.Cont _ ->
-              failwith "Should have reached the end2"
-          end
-          | Sexp.Cont_state.Parsing_sexp_comment
-          | Sexp.Cont_state.Parsing_block_comment
-          | Sexp.Cont_state.Parsing_toplevel_whitespace ->
-            failwith "string contains no sexp"
-          | Sexp.Cont_state.Parsing_nested_whitespace ->
-            failwith "incomplete"
-          | Sexp.Cont_state.Parsing_list -> failwith "Should have reached the end3"
-        else aux parse_fun (pos + 1) in
-      aux_cont pos cont_state parse_fun
+     (* feeding the characters to the parse function one by one to make sure the cont_state
+        machinery is working fine *)
+     let pos = 0 in
+     match Sexp.parse ~len:1 s with
+     | Sexp.Done (t, _) -> t
+     | Sexp.Cont (cont_state, parse_fun) ->
+       let rec aux parse_fun pos =
+         assert (pos < String.length s);
+         match parse_fun ~pos ~len:1 s with
+         | Sexp.Done (t, _) ->
+           if pos + 1 = String.length s then t
+           else failwith "Should have reached the end1"
+         | Sexp.Cont (cont_state, parse_fun) ->
+           aux_cont pos cont_state parse_fun
+       and aux_cont pos cont_state parse_fun =
+         if pos + 1 = String.length s then
+           match cont_state with
+           | Sexp.Cont_state.Parsing_atom -> begin
+               match parse_fun ~pos:0 ~len:1 " " with
+               | Sexp.Done (t, _) -> t
+               | Sexp.Cont (Sexp.Cont_state.Parsing_atom, _) ->
+                 failwith "incomplete quoted atom"
+               | Sexp.Cont _ ->
+                 failwith "Should have reached the end2"
+             end
+           | Sexp.Cont_state.Parsing_sexp_comment
+           | Sexp.Cont_state.Parsing_block_comment
+           | Sexp.Cont_state.Parsing_toplevel_whitespace ->
+             failwith "string contains no sexp"
+           | Sexp.Cont_state.Parsing_nested_whitespace ->
+             failwith "incomplete"
+           | Sexp.Cont_state.Parsing_list -> failwith "Should have reached the end3"
+         else aux parse_fun (pos + 1) in
+       aux_cont pos cont_state parse_fun
   ), "cont-incremental";
   (fun s -> Sexp.scan_sexp (Lexing.from_string s)), "ocamllex";
   (fun s -> Sexp.Annotated.get_sexp (Sexp.Annotated.of_string s)), "annot";
   (fun s ->
-    let sexps_with_layout =
-      Sexp.With_layout.Parser.sexps
-        Sexp.With_layout.Lexer.main (Lexing.from_string s)
-    in
-    sexp_of_layout_sexps_or_something sexps_with_layout
+     let sexps_with_layout =
+       Sexp.With_layout.Parser.sexps
+         Sexp.With_layout.Lexer.main (Lexing.from_string s)
+     in
+     sexp_of_layout_sexps_or_something sexps_with_layout
   ), "layout-sexps";
   (fun s ->
-    let parse =
-      let lexbuf = Lexing.from_string s in
-      fun () ->
-        Sexp.With_layout.Parser.sexp_opt Sexp.With_layout.Lexer.main lexbuf
-    in
-    let rec aux acc =
-      match parse () with
-      | None -> List.rev acc
-      | Some sexp -> aux (sexp :: acc)
-    in
-    sexp_of_layout_sexps_or_something (aux [])
+     let parse =
+       let lexbuf = Lexing.from_string s in
+       fun () ->
+         Sexp.With_layout.Parser.sexp_opt Sexp.With_layout.Lexer.main lexbuf
+     in
+     let rec aux acc =
+       match parse () with
+       | None -> List.rev acc
+       | Some sexp -> aux (sexp :: acc)
+     in
+     sexp_of_layout_sexps_or_something (aux [])
   ), "layout-sexp-opt";
 ]
 
@@ -97,17 +97,17 @@ let list_parsers = [
   (fun s -> Sexp.List (Sexp.scan_sexps (Lexing.from_string s))), "ocamllex";
   (fun s -> Sexp.List (Sexp.scan_sexps_conv ~f:(fun x -> x) (Lexing.from_string s))), "ocamllex_opt";
   (fun s ->
-    Sexp.List (
-      put_string_in_channel s (fun ch ->
-        List.map Sexp.Annotated.get_sexp (Sexp.Annotated.input_sexps ch)
-      )
-    )), "annot";
+     Sexp.List (
+       put_string_in_channel s (fun ch ->
+         List.map Sexp.Annotated.get_sexp (Sexp.Annotated.input_sexps ch)
+       )
+     )), "annot";
   (fun s ->
-    let sexps_with_layout =
-      Sexp.With_layout.Parser.sexps
-        Sexp.With_layout.Lexer.main (Lexing.from_string s) in
-    let sexps = Sexp.With_layout.Forget.t_or_comments sexps_with_layout in
-    Sexp.List sexps
+     let sexps_with_layout =
+       Sexp.With_layout.Parser.sexps
+         Sexp.With_layout.Lexer.main (Lexing.from_string s) in
+     let sexps = Sexp.With_layout.Forget.t_or_comments sexps_with_layout in
+     Sexp.List sexps
   ), "layout-sexps";
 ]
 
@@ -196,8 +196,38 @@ let round_trip_all_characters () =
   done
 ;;
 
+(* the Sexp.input_sexps function tested below has a loop that uses
+   the continuation mechanism of the parser if the whole thing cannot be
+   loaded at once. (The parser named "cont-incremental" in the variable
+   "parsers" above does exercise the continuation mechanism but its logic
+   is coded in the present file, not in the library functions.)
+*)
+let load_large_sexp () =
+  (* note: the file is expected to be larger than the default size of buffers *)
+  let num = 2048 in
+  let items = Buffer.create 8192 in
+  Buffer.add_char items '(';
+  for i = 0 to pred num do
+    Buffer.add_string items (Printf.sprintf "item_%d\n" i)
+  done;
+  Buffer.add_char items ')';
+  match put_string_in_channel (Buffer.contents items) Sexp.input_sexps with
+  | [ Sexp.List l ] ->
+    assert (List.length l = num);
+    List.iteri
+      (fun i sexp ->
+         match sexp with
+         | Sexp.Atom name ->
+           assert (name = Printf.sprintf "item_%d" i)
+         | Sexp.List _ ->
+           failwith "expected to find bare atom in the list")
+      l
+  | _ ->
+    failwith "load_large_sexp: expected to load a list"
+
 let%test_unit _ =
   round_trip_all_characters ();
+  load_large_sexp ();
   same_parse_tree [%here] "(a)" "(a;\n)"; (* single line comment in a list *)
   same_parse_tree [%here] ";\nb" "b"; (* single line comment at toplevel *)
   same_parse_tree [%here] ";;\nb" "b"; (* single line comment don't nest *)
@@ -205,30 +235,30 @@ let%test_unit _ =
   same_parse_tree [%here] "(a#)" "(a#;\n)";
   parse_fail [%here] "a#|"
     (function
-    | Failure s -> grep "comment tokens in unquoted atom" s
-    | Sexp.Parse_error {Sexp.location = "maybe_parse_bad_atom_hash"; err_msg=_; parse_state=_ } -> true
-    | _ -> false);
+      | Failure s -> grep "comment tokens in unquoted atom" s
+      | Sexp.Parse_error {Sexp.location = ("maybe_parse_bad_atom_hash" | "feed"); err_msg=_; parse_state=_ } -> true
+      | _ -> false);
   parse_fail [%here] "a|#"
     (function
-    | Failure s -> grep "comment tokens in unquoted atom" s
-    | Sexp.Parse_error {Sexp.location = "maybe_parse_bad_atom_pipe"; err_msg=_; parse_state=_ } -> true
-    | _ -> false);
+      | Failure s -> grep "comment tokens in unquoted atom" s
+      | Sexp.Parse_error {Sexp.location = ("maybe_parse_bad_atom_pipe" | "feed"); err_msg=_; parse_state=_ } -> true
+      | _ -> false);
   parse_fail [%here] "##|"
     (function
-    | Failure s -> grep "comment tokens in unquoted atom" s
-    | Sexp.Parse_error {Sexp.location = "maybe_parse_bad_atom_hash"; err_msg=_; parse_state=_ } -> true
-    | _ -> false);
+      | Failure s -> grep "comment tokens in unquoted atom" s
+      | Sexp.Parse_error {Sexp.location = ("maybe_parse_bad_atom_hash" | "feed"); err_msg=_; parse_state=_ } -> true
+      | _ -> false);
   parse_fail [%here] "||#"
     (function
-    | Failure s -> grep "comment tokens in unquoted atom" s
-    | Sexp.Parse_error {Sexp.location = "maybe_parse_bad_atom_pipe"; err_msg=_; parse_state=_ } -> true
-    | _ -> false);
+      | Failure s -> grep "comment tokens in unquoted atom" s
+      | Sexp.Parse_error {Sexp.location = ("maybe_parse_bad_atom_pipe" | "feed"); err_msg=_; parse_state=_ } -> true
+      | _ -> false);
   parse_fail_trees [%here] "#|" (* not terminated *)
     (function
       | Failure s ->
         grep "incomplete" s || grep "unterminated" s
         || grep "reached EOF while in state" s
-    | _ -> false);
+      | _ -> false);
   parse_fail_trees [%here] "\"" (* unterminated quoted atom *)
     (function
       | Failure s ->
@@ -258,40 +288,40 @@ let%test_unit _ =
       | Failure s ->
         grep "incomplete" s || grep "unterminated" s
         || grep "reached EOF while in state" s
-      | Sexp.Parse_error {Sexp.location = "parse_dec"; _ } -> true
+      | Sexp.Parse_error {Sexp.location = ("parse_dec" | "feed"); _ } -> true
       | _ -> false);
   parse_fail_trees ~no_following_sibling:true [%here] "\"\\x"
     (function
       | Failure s ->
         grep "incomplete" s || grep "unterminated" s
         || grep "reached EOF while in state" s
-      | Sexp.Parse_error {Sexp.location = "parse_hex"; _ } -> true
+      | Sexp.Parse_error {Sexp.location = ("parse_hex" | "feed"); _ } -> true
       | _ -> false);
   parse_fail [%here] "\"hello" (* unterminated quoted atom *)
     (function
-    | Failure s -> grep "incomplete" s || grep "unterminated" s
-    | _ -> false);
+      | Failure s -> grep "incomplete" s || grep "unterminated" s
+      | _ -> false);
   parse_fail [%here] "\013x" (* weird newline *)
     (function
       | Failure s -> grep "unexpected character" s || grep "empty token" s
-      | Sexp.Parse_error { location = "parse_nl"; err_msg = _; parse_state = _; } -> true
+      | Sexp.Parse_error { location = ("parse_nl" | "feed"); err_msg = _; parse_state = _; } -> true
       | _ -> false);
   parse_fail_trees [%here] "\013" (* trailing weird newline *)
     (function
       | Failure s ->
         grep "incomplete" s || grep "empty token" s
         || grep "reached EOF while in state" s
-      | Sexp.Parse_error { location = "parse_nl"; err_msg = _; parse_state = _; } -> true
+      | Sexp.Parse_error { location = ("parse_nl" | "feed"); err_msg = _; parse_state = _; } -> true
       | _ -> false);
   parse_fail [%here] "|#" (* not started *)
     (function
-    | Failure s -> grep "illegal end of comment" s
-    | Sexp.Parse_error {Sexp.location = "maybe_parse_close_comment"; err_msg=_; parse_state=_ } -> true
-    | _ -> false);
+      | Failure s -> grep "illegal end of comment" s
+      | Sexp.Parse_error {Sexp.location = ("maybe_parse_close_comment" | "feed"); err_msg=_; parse_state=_ } -> true
+      | _ -> false);
   parse_fail [%here] ~no_following_sibling:true "#;" (* not followed *)
     (function
-    | Sexp.Parse_error _ | Failure _ -> true
-    | _ -> false);
+      | Sexp.Parse_error _ | Failure _ -> true
+      | _ -> false);
 
   same_parse_tree [%here] "#;a b" "b"; (* sexp comment + atom *)
   same_parse_tree [%here] "#;((a)) b" "b"; (* sexp comment + list *)
@@ -303,7 +333,7 @@ let%test_unit _ =
   same_parse_tree [%here] "#; #; #; comment1 comment2 comment3 a" "a"; (* nested sexp comment *)
   same_parse_tree [%here] "#| ; |# ()" "()"; (* single line comment are not parsed inside of blocks *)
   same_parse_tree [%here] "#|#||#|#a" "a"; (* consecutive comment opening are not parsed
-                                             as one invalid atom *)
+                                              as one invalid atom *)
   (* why do we need a freaking space at the end?? *)
   same_parse_trees [%here] "a #; b c " "a c ";  (* base case, accepting lists *)
   same_parse_trees [%here] "#;#;a b c d " "c d "; (* leading comments work alright *)
