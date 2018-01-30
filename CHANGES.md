@@ -1,3 +1,11 @@
+## v0.10
+
+- Added `val Sexp.is_unit : t -> bool`
+
+- Enabled `-safe-string`
+
+## v0.9
+
 ## 113.43.00
 
 - Sexps and EOF are a mess. Try to improve the situation somewhat!
