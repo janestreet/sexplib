@@ -1,3 +1,10 @@
+## git version
+
+- Switched `Sexplib`'s sexp parser to use the `Parsexp` library.
+  See https://github.com/janestreet/parsexp
+
+- Remove the `location` field from the `parse_error` type.
+
 ## v0.10
 
 - Added `val Sexp.is_unit : t -> bool`

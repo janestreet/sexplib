@@ -2,10 +2,10 @@ open Sexplib
 
 let () =
   Printexc.register_printer (function
-    | Sexp.Parse_error {Sexp.location; err_msg; parse_state=_ } ->
+    | Sexp.Parse_error {Sexp.err_msg; parse_state=_ } ->
       Some (
-        Printf.sprintf "Sexp.parse_error {location = %S; err_msg = %S}"
-          location err_msg
+        Printf.sprintf "Sexp.parse_error {err_msg = %S}"
+          err_msg
       )
     | _ -> None
   )

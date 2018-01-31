@@ -225,13 +225,10 @@ and ('a, 't) parse_fun = pos : int -> len : int -> 'a -> ('a, 't) parse_result
 type 't parse_state =
   {
     parse_pos : Parse_pos.t;
-    mutable pstack : 't;
-    pbuf : Buffer.t;
   }
 
 type parse_error =
   {
-    location : string;
     err_msg : string;
     parse_state :
       [
@@ -248,12 +245,11 @@ let () =
       | Parse_error pe ->
         let ppos =
           match pe.parse_state with
-          | `Sexp { parse_pos; pstack=_; pbuf=_ } | `Annot { parse_pos; pstack=_; pbuf=_ } -> parse_pos
+          | `Sexp { parse_pos; } | `Annot { parse_pos; } -> parse_pos
         in
         List [
           Atom "Sexplib.Sexp.Parse_error";
           List [
-            List [Atom "location"; Atom pe.location];
             List [Atom "err_msg"; Atom pe.err_msg];
             List [Atom "text_line"; Conv.sexp_of_int ppos.Parse_pos.text_line];
             List [Atom "text_char"; Conv.sexp_of_int ppos.Parse_pos.text_char];
@@ -358,16 +354,10 @@ module Make_parser (T : sig
 
   let raise_parse_error state pos msg =
     let parse_state =
-      { parse_pos = parse_pos_of_state state pos
-        (* both pstack and pbuf are unused,
-           and will be removed in an upcoming feature *)
-      ; pstack    = []
-      ; pbuf      = Buffer.create 0
-      }
+      { parse_pos = parse_pos_of_state state pos }
     in
     let parse_error =
-      { location    = "feed"
-      ; err_msg     = msg
+      { err_msg     = msg
       ; parse_state = `Sexp parse_state
       }
     in

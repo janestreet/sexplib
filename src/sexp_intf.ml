@@ -254,14 +254,11 @@ module type S = sig
     private
       {
         parse_pos : Parse_pos.t;  (** Current parse position *)
-        mutable pstack : 't;  (** Stack of found S-expression lists *)
-        pbuf : Buffer.t;  (** Current atom buffer *)
       }
 
   (** Type of parse errors *)
   type parse_error = Pre_sexp.parse_error =
     {
-      location : string;  (** Function in which the parse failed *)
       err_msg : string;  (** Reason why parsing failed *)
       parse_state :
         [
