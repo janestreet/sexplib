@@ -2,8 +2,12 @@
 ;; sexplib on ppx_inline_test.
 (library
  ((name sexplib_ounit_tests)
-  (libraries (sexplib str unix))
+  (libraries (expect_test_helpers_kernel
+              sexplib
+              str
+              unix))
   (flags (:standard -safe-string))
   (preprocess (pps (ppx_jane ppx_driver.runner)))))
+
 
 (jbuild_version 1)

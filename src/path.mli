@@ -6,7 +6,7 @@
 type el =
   | Pos of int  (** [Pos n] denotes [n]th element in a tuple *)
   | Match of string * int
-      (** [Match (tag, n)] denotes [n]th argument of sum matching [tag] *)
+  (** [Match (tag, n)] denotes [n]th argument of sum matching [tag] *)
   | Rec of string  (** [Rec name] denotes the record field having [name] *)
 
 (** Type of substitution paths *)
@@ -20,22 +20,22 @@ val parse : string -> t
 
     Syntax:
 
-      "." ->
-        separates path elements; must be present at start of string.
+    "." ->
+    separates path elements; must be present at start of string.
 
-      "\[4\]" ->
-        specifies the 4th element in a tuple.
+    "\[4\]" ->
+    specifies the 4th element in a tuple.
 
-      "some_tag\[4\]" ->
-        tries to match [some_tag], then denotes its 4th argument.
+    "some_tag\[4\]" ->
+    tries to match [some_tag], then denotes its 4th argument.
 
-      "name" ->
-        denotes record field having [name]
+    "name" ->
+    denotes record field having [name]
 
     Example from test code:
 
-      ".t.x.B[1]" -> choose record field with name [t], then subfield
-      [x].  Match this value against [B], and denote its first argument.
+    ".t.x.B[1]" -> choose record field with name [t], then subfield
+    [x].  Match this value against [B], and denote its first argument.
 
     @raise Failure if the path is syntactically invalid.
 *)

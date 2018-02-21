@@ -10,23 +10,23 @@ let sexp_of_num n = Atom (Num.string_of_num n)
 
 let big_int_of_sexp sexp = match sexp with
   | Atom str ->
-      (try Big_int.big_int_of_string str
-      with exc ->
-        of_sexp_error ("big_int_of_sexp: " ^ exn_to_string exc) sexp)
+    (try Big_int.big_int_of_string str
+     with exc ->
+       of_sexp_error ("big_int_of_sexp: " ^ exn_to_string exc) sexp)
   | List _ -> of_sexp_error "big_int_of_sexp: atom needed" sexp
 
 let nat_of_sexp sexp = match sexp with
   | Atom str ->
-      (try Nat.nat_of_string str
-      with exc ->
-        of_sexp_error ("nat_of_sexp: " ^ exn_to_string exc) sexp)
+    (try Nat.nat_of_string str
+     with exc ->
+       of_sexp_error ("nat_of_sexp: " ^ exn_to_string exc) sexp)
   | List _ -> of_sexp_error "nat_of_sexp: atom needed" sexp
 
 let ratio_of_sexp sexp = match sexp with
   | Atom str ->
-      (try Ratio.ratio_of_string str
-      with exc ->
-        of_sexp_error ("ratio_of_sexp: " ^ exn_to_string exc) sexp)
+    (try Ratio.ratio_of_string str
+     with exc ->
+       of_sexp_error ("ratio_of_sexp: " ^ exn_to_string exc) sexp)
   | List _ -> of_sexp_error "ratio_of_sexp: atom needed" sexp
 
 let num_of_sexp sexp =

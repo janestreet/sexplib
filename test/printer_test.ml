@@ -85,7 +85,7 @@ let test_printer () =
     "#;out#;out-as-well ;still out\n finally-in"; (* consecutive sexp comments *)
     "#;#;out out-as-well ;still out\n finally-in"; (* nested sexp comments *)
     "#;#;(\"out\" )out-as-well ;still out\n finally-in";
-      (* nested sexp comments that comment out more complicated expressions *)
+    (* nested sexp comments that comment out more complicated expressions *)
 
     "#;;line comment1\n;line comment2\nout in";
   ] in

@@ -51,22 +51,22 @@
    -------
 
    Assume that [input.sexp] contains
-   {[
+   {v
    (:include defs.sexp)
    (:include template.sexp)
    (:use f (a (:use a)) (b (:use b)))
-   ]}
+   v}
 
    the file [defs.sexp] contains
-   {[
+   {v
    (:let a () hello)
    (:let b () " world")
-   ]}
+   v}
 
    and the file [template.sexp] contains
-   {[
+   {v
    (:let f (a b) (:concat (:use a) (:use b)))
-   ]}
+   v}
 
    Then [load_sexp "input.sexp"] will return "hello world".
 
@@ -83,7 +83,7 @@
 
    First some boilerplate rules: a sexp without macros evaluates to itself:
 
-   {[
+   {v
    V : <empty sexp list> => <empty sexp list>
 
    V : S  => SS1
@@ -98,11 +98,11 @@
    V : SS => SS'
    -----------------
    V : (SS) => (SS')
-   ]}
+   v}
 
    Now the interesting rules.
 
-   {[
+   {v
    free_vars(SSv) = {v1, ..., vn}
    V(v ~> SSv) : SS => SS'
    --------------------------------------
@@ -122,7 +122,7 @@
    Each Ci is an atom
    -------------------------------------------------------
    V : (:concat S1 ... Sn) => String.concat [C1; ...; Cn]
-   ]}
+   v}
 
    As follows from the let-rule, let definitions may only refer to the variables
    explicitly mentioned in the argument list. This avoids the complexities of
@@ -132,8 +132,12 @@
 type 'a conv =
   [ `Result of 'a | `Error of exn * Sexp.t ]
 
+val sexp_of_conv : ('a -> Sexp.t) -> 'a conv -> Sexp.t
+
 type 'a annot_conv = ([ `Result of 'a | `Error of exn * Sexp.Annotated.t ] as 'body)
   constraint 'body = 'a Sexp.Annotated.conv
+
+val sexp_of_annot_conv : ('a -> Sexp.t) -> 'a annot_conv -> Sexp.t
 
 val load_sexp : string -> Sexp.t
 (** [load_sexp file] like [{!Sexp.load_sexp} file], but resolves the macros

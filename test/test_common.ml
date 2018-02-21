@@ -18,14 +18,14 @@ let wrap_in_context ?(no_following_sibling=false) () = [
   (fun a -> "( " ^ a ^ " )");
   (fun a -> "( ( ( " ^ a ^ "  ) ) )");
 ] @ (
-  if no_following_sibling then
-    []
-  else [
-    (fun a -> "( something "  ^ a ^ "\"something else\")");
-    (fun a -> "( \"something else\""  ^ a ^ " something )");
-    (fun a -> "((\"something else\")"  ^ a ^ "(something))");
-  ]
-)
+    if no_following_sibling then
+      []
+    else [
+      (fun a -> "( something "  ^ a ^ "\"something else\")");
+      (fun a -> "( \"something else\""  ^ a ^ " something )");
+      (fun a -> "((\"something else\")"  ^ a ^ "(something))");
+    ]
+  )
 
 let explode s =
   let acc = ref [] in
@@ -37,6 +37,6 @@ let explode s =
 let newline_adapters = [
   (fun s -> s), "unix";
   (fun s ->
-    String.concat ""
-      (List.map (function '\n' -> "\r\n" | c -> String.make 1 c) (explode s))), "windows";
+     String.concat ""
+       (List.map (function '\n' -> "\r\n" | c -> String.make 1 c) (explode s))), "windows";
 ]

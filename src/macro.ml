@@ -24,6 +24,20 @@ type 'a conv =
 type 'a annot_conv = (* 'a Sexp.Annotated.conv = *)
   [ `Result of 'a | `Error of exn * Sexp.Annotated.t ]
 
+let sexp_of_conv sexp_of_a = function
+  | `Result a -> Sexp.List [ Atom "Result"; a |> sexp_of_a ]
+  | `Error (exn, sexp) ->
+    List [ Atom "Error"; List [ exn |> Base.Exn.sexp_of_t; sexp ] ]
+
+let sexp_of_annot_conv sexp_of_a = function
+  | `Result a -> Sexp.List [ Atom "Result"; a |> sexp_of_a ]
+  | `Error (exn, annotated_sexp) ->
+    List
+      [ Atom "Error"
+      ; List
+          [ exn |> Base.Exn.sexp_of_t
+          ; annotated_sexp |> Sexp.Annotated.get_sexp ] ]
+
 module List = struct
 
   (* Think about tail recursion when adding more list functions in here. *)
@@ -148,13 +162,15 @@ let expand_local_macros_exn ~trail ts =
       let free = free_variables def in
       let args_set = Vars.of_list args in
       let unused = Vars.diff args_set free in
-      if not (Vars.is_empty unused) then raise
-        (macro_error (sprintf "Unused variables: %s"
-                        (String.concat ", " (Vars.elements unused))) t);
+      if not (Vars.is_empty unused)
+      then raise
+             (macro_error (sprintf "Unused variables: %s"
+                             (String.concat ", " (Vars.elements unused))) t);
       let undeclared = Vars.diff free args_set in
-      if not (Vars.is_empty undeclared) then raise
-        (macro_error (sprintf "Undeclared arguments in let: %s"
-                        (String.concat ", " (Vars.elements undeclared))) t);
+      if not (Vars.is_empty undeclared)
+      then raise
+             (macro_error (sprintf "Undeclared arguments in let: %s"
+                             (String.concat ", " (Vars.elements undeclared))) t);
       begin match List.find_a_dup args with
       | None -> ()
       | Some dup ->
@@ -285,10 +301,10 @@ module Loader (S : Sexp_loader) = struct
         | None -> None
         | Some annot_sexp -> Some (file, annot_sexp)))
 
- (* This function has to compute a transformation trail even though all of the returned
-    errors are of the form [Of_sexp_error (_, t)] where [t] is a physical subexpression of
-    the input, in the event where an error happens not during macro expansion but during
-    conversion to ocaml values. *)
+  (* This function has to compute a transformation trail even though all of the returned
+     errors are of the form [Of_sexp_error (_, t)] where [t] is a physical subexpression of
+     the input, in the event where an error happens not during macro expansion but during
+     conversion to ocaml values. *)
   let expand_and_convert ~multiple (mode : mode) file f =
     let trail = ref ([] : trail) in
     let add_result ~arg ~result =

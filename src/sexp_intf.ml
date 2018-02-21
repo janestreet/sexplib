@@ -76,12 +76,12 @@ module type S = sig
     (** Position information after complete parse *)
     type t = Pre_sexp.Parse_pos.t =
       private
-        {
-          mutable text_line : int;  (** Line position in parsed text *)
-          mutable text_char : int;  (** Character position in parsed text *)
-          mutable global_offset : int;  (** Global/logical offset *)
-          mutable buf_pos : int;  (** Read position in string buffer *)
-        }
+      {
+        mutable text_line : int;  (** Line position in parsed text *)
+        mutable text_char : int;  (** Character position in parsed text *)
+        mutable global_offset : int;  (** Global/logical offset *)
+        mutable buf_pos : int;  (** Read position in string buffer *)
+      }
 
     val create :
       ?text_line : int -> ?text_char : int ->
@@ -121,12 +121,12 @@ module type S = sig
                                     an S-expression.  Current parse position
                                     is [parse_pos]. *)
     | Cont of Cont_state.t * ('a, 't) parse_fun
-      (** [Cont (cont_state, parse_fun)] met the end of input before completely
-          parsing an S-expression.  The user has to call [parse_fun] to
-          continue parsing the S-expression in another buffer.  [cont_state]
-          is the current parsing state of the continuation.
-          NOTE: the continuation may only be called once and will raise
-          [Failure] otherwise! *)
+    (** [Cont (cont_state, parse_fun)] met the end of input before completely
+        parsing an S-expression.  The user has to call [parse_fun] to
+        continue parsing the S-expression in another buffer.  [cont_state]
+        is the current parsing state of the continuation.
+        NOTE: the continuation may only be called once and will raise
+        [Failure] otherwise! *)
 
   (** Type of parsing functions with given offsets and lengths. *)
   and ('a, 't) parse_fun = pos : int -> len : int -> 'a -> ('a, 't) parse_result
@@ -150,6 +150,8 @@ module type S = sig
 
     (** Type of conversion results of annotated S-expressions. *)
     type 'a conv = [ `Result of 'a | `Error of exn * t ]
+
+    val sexp_of_conv : ('a -> Type.t) -> 'a conv -> Type.t
 
     (** Exception associated with conversion errors.  First argument describes
         the location, the second the reason. *)
@@ -252,9 +254,9 @@ module type S = sig
   (** Type of state maintained during parsing *)
   type 't parse_state = 't Pre_sexp.parse_state =
     private
-      {
-        parse_pos : Parse_pos.t;  (** Current parse position *)
-      }
+    {
+      parse_pos : Parse_pos.t;  (** Current parse position *)
+    }
 
   (** Type of parse errors *)
   type parse_error = Pre_sexp.parse_error =
@@ -262,8 +264,8 @@ module type S = sig
       err_msg : string;  (** Reason why parsing failed *)
       parse_state :
         [
-        | `Sexp of t list list parse_state
-        | `Annot of Annotated.stack parse_state
+          | `Sexp of t list list parse_state
+          | `Annot of Annotated.stack parse_state
         ]
         (** State of parser *)
     }
@@ -556,7 +558,7 @@ module type S = sig
   (** [to_buffer ~buf sexp] same as {!to_buffer_mach}. *)
 
   val to_buffer_gen :
-       buf : 'buffer
+    buf : 'buffer
     -> add_char : ('buffer -> char -> unit)
     -> add_string : ('buffer -> string -> unit)
     -> t
@@ -644,7 +646,7 @@ module type S = sig
       val sexp : asexp -> unit t (* assumes that positions in [asexp] are relative *)
       val run : (char -> unit) -> unit t -> unit
     end
-      with type asexp := t_or_comment
+    with type asexp := t_or_comment
 
     module Parser : sig
       type token

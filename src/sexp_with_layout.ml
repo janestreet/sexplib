@@ -34,7 +34,7 @@ module Render = struct
   }
 
   (* the point of [immed_after_last_atom] is to prevent
-      (A B C) from rendering as (A BBC) after we replace B with BB *)
+     (A B C) from rendering as (A BBC) after we replace B with BB *)
 
   type 'a t = (char -> unit) -> state -> 'a
 
@@ -109,7 +109,7 @@ module Render = struct
     );
     st.row_shift <- {
       st.row_shift with Rel_pos.
-      row = st.row_shift.Rel_pos.row + row_delta;
+                     row = st.row_shift.Rel_pos.row + row_delta;
     }
 
   let rec render_t putc ~anchor (st : state) t =
@@ -175,8 +175,8 @@ module Forget = struct
       | [] -> k []
       | toc :: tocs ->
         forget_toc toc (function
-        | None -> forget_tocs tocs k
-        | Some x -> forget_tocs tocs (fun xs -> k (x :: xs)))
+          | None -> forget_tocs tocs k
+          | Some x -> forget_tocs tocs (fun xs -> k (x :: xs)))
 
     and forget_toc toc k =
       match toc with

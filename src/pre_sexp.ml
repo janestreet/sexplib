@@ -4,7 +4,7 @@ open Format
 open Bigarray
 module Sexplib = Base.Exported_for_specific_uses.Sexplib
 module Conv = Sexplib.Conv (* conv.ml depends on us so we can
-                                    only use this module *)
+                              only use this module *)
 
 include Type
 
@@ -46,9 +46,9 @@ module Tmp_file = struct
     let rand_state = match !prng with
       | Some v -> v
       | None ->
-          let ret = Random.State.make_self_init () in
-          prng := Some ret;
-          ret
+        let ret = Random.State.make_self_init () in
+        prng := Some ret;
+        ret
     in
     let rnd = (Random.State.bits rand_state) land 0xFFFFFF in
     Printf.sprintf "%s%06x%s" prefix rnd suffix
@@ -146,11 +146,11 @@ module Annot = struct
     Conv.Exn_converter.add ~finalise:false [%extension_constructor Conv_exn]
       (function
         | Conv_exn (loc, exn) ->
-            List [
-              Atom "Sexplib.Sexp.Annotated.Conv_exn";
-              Atom loc;
-              Conv.sexp_of_exn exn;
-            ]
+          List [
+            Atom "Sexplib.Sexp.Annotated.Conv_exn";
+            Atom loc;
+            Conv.sexp_of_exn exn;
+          ]
         | _ -> assert false)
 
   type stack = {
@@ -161,6 +161,14 @@ module Annot = struct
   let get_sexp = function Atom (_, sexp) | List (_, _, sexp) -> sexp
   let get_range = function Atom (range, _) | List (range, _, _) -> range
 
+  let sexp_of_conv sexp_of_a = function
+    | `Result a -> Type.List [ Atom "Result"; a |> sexp_of_a ]
+    | `Error (exn, t) ->
+      List
+        [ Atom "Error"
+        ; List [ exn |> Conv.sexp_of_exn
+               ; t |> get_sexp ] ]
+
   exception Annot_sexp of t
 
   let find_sexp annot_sexp sexp =
@@ -168,7 +176,7 @@ module Annot = struct
       match annot_sexp with
       | Atom (_, sub_sexp)
       | List (_, _, sub_sexp) when sexp == sub_sexp ->
-          raise (Annot_sexp annot_sexp)
+        raise (Annot_sexp annot_sexp)
       | List (_, annots, _) -> List.iter loop annots
       | Atom _ -> ()
     in
@@ -232,8 +240,8 @@ type parse_error =
     err_msg : string;
     parse_state :
       [
-      | `Sexp of t list list parse_state
-      | `Annot of Annot.stack parse_state
+        | `Sexp of t list list parse_state
+        | `Annot of Annot.stack parse_state
       ]
   }
 
@@ -332,11 +340,11 @@ module Make_parser (T : sig
       -> Impl.Stack.t
   end) : sig
   val parse
-     : ?parse_pos:Parse_pos.t
+    : ?parse_pos:Parse_pos.t
     -> ?len:int
     -> T.input
     -> (T.input, T.output) parse_result
- end = struct
+end = struct
 
   let parse_pos_of_state state buf_pos =
     { Parse_pos.text_line     = T.Impl.State.line   state;
@@ -625,23 +633,23 @@ let gen_load_sexp my_parse ?(strict = true) ?(buf = Bytes.create 8192) file =
       match this_parse ~pos:0 ~len (Bytes.unsafe_to_string buf) with
       | Done (sexp, ({ Parse_pos.buf_pos; _ } as parse_pos)) when strict ->
         let rec strict_loop this_parse ~pos ~len =
-            match this_parse ~pos ~len (Bytes.unsafe_to_string buf) with
-            | Done _ ->
-                failwith (
-                  sprintf "%s: more than one S-expression in file %s"
-                    gen_load_sexp_loc file)
-            | Cont (cont_state, this_parse) ->
-                let len = input ic buf 0 buf_len in
-                if len > 0 then strict_loop this_parse ~pos:0 ~len
-                else if cont_state = Cont_state.Parsing_toplevel_whitespace then sexp
-                else
-                  failwith (
-                    sprintf "%s: %s in state %s loading file %s"
-                      gen_load_sexp_loc "additional incomplete data"
-                      (Cont_state.to_string cont_state) file)
-          in
-          let this_parse = mk_this_parse ~parse_pos my_parse in
-          strict_loop this_parse ~pos:buf_pos ~len:(len - buf_pos)
+          match this_parse ~pos ~len (Bytes.unsafe_to_string buf) with
+          | Done _ ->
+            failwith (
+              sprintf "%s: more than one S-expression in file %s"
+                gen_load_sexp_loc file)
+          | Cont (cont_state, this_parse) ->
+            let len = input ic buf 0 buf_len in
+            if len > 0 then strict_loop this_parse ~pos:0 ~len
+            else if cont_state = Cont_state.Parsing_toplevel_whitespace then sexp
+            else
+              failwith (
+                sprintf "%s: %s in state %s loading file %s"
+                  gen_load_sexp_loc "additional incomplete data"
+                  (Cont_state.to_string cont_state) file)
+        in
+        let this_parse = mk_this_parse ~parse_pos my_parse in
+        strict_loop this_parse ~pos:buf_pos ~len:(len - buf_pos)
       | Done (sexp, _) -> sexp
       | Cont (_, this_parse) -> loop this_parse
   in
@@ -686,9 +694,9 @@ module Annotated = struct
     let sexp = get_sexp annot_sexp in
     try `Result (f sexp)
     with Of_sexp_error (exc, bad_sexp) as e ->
-      match find_sexp annot_sexp bad_sexp with
-      | None -> raise e
-      | Some bad_annot_sexp -> `Error (exc, bad_annot_sexp)
+    match find_sexp annot_sexp bad_sexp with
+    | None -> raise e
+    | Some bad_annot_sexp -> `Error (exc, bad_annot_sexp)
 
   let get_conv_exn ~file ~exc annot_sexp =
     let range = get_range annot_sexp in
@@ -706,7 +714,7 @@ let load_sexp_conv ?(strict = true) ?(buf = Bytes.create 8192) file f =
 let raise_conv_exn ~file = function
   | `Result res -> res
   | `Error (exc, annot_sexp) ->
-      raise (Annotated.get_conv_exn ~file ~exc annot_sexp)
+    raise (Annotated.get_conv_exn ~file ~exc annot_sexp)
 
 let load_sexp_conv_exn ?strict ?buf file f =
   raise_conv_exn ~file (load_sexp_conv ?strict ?buf file f)
@@ -715,26 +723,26 @@ let load_sexps_conv ?(buf = Bytes.create 8192) file f =
   let rev_sexps = load_rev_sexps ~buf file in
   try List.rev_map (fun sexp -> `Result (f sexp)) rev_sexps
   with Of_sexp_error _ as e ->
-    match Annotated.load_rev_sexps ~buf file with
-    | [] ->
-        (* File is now empty - perhaps it was a temporary file handle? *)
-        raise e
-    | rev_annot_sexps ->
-        List.rev_map (fun annot_sexp -> Annotated.conv f annot_sexp)
-          rev_annot_sexps
+    (match Annotated.load_rev_sexps ~buf file with
+     | [] ->
+       (* File is now empty - perhaps it was a temporary file handle? *)
+       raise e
+     | rev_annot_sexps ->
+       List.rev_map (fun annot_sexp -> Annotated.conv f annot_sexp)
+         rev_annot_sexps)
 
 let load_sexps_conv_exn ?(buf = Bytes.create 8192) file f =
   let rev_sexps = load_rev_sexps ~buf file in
   try List.rev_map f rev_sexps
   with Of_sexp_error _ as e ->
-    match Annotated.load_rev_sexps ~buf file with
-    | [] ->
-        (* File is now empty - perhaps it was a temporary file handle? *)
-        raise e
-    | rev_annot_sexps ->
-        List.rev_map
-          (fun annot_sexp -> raise_conv_exn ~file (Annotated.conv f annot_sexp))
-          rev_annot_sexps
+    (match Annotated.load_rev_sexps ~buf file with
+     | [] ->
+       (* File is now empty - perhaps it was a temporary file handle? *)
+       raise e
+     | rev_annot_sexps ->
+       List.rev_map
+         (fun annot_sexp -> raise_conv_exn ~file (Annotated.conv f annot_sexp))
+         rev_annot_sexps)
 
 let gen_of_string_conv of_string annot_of_string str f =
   let sexp = of_string str in
@@ -763,7 +771,7 @@ module Of_string_conv_exn = struct
               List [Atom "sexp"; osce.sexp];
               List [Atom "sub_sexp"; osce.sub_sexp];
             ]
-            ]
+          ]
         | _ -> assert false)
 end
 
@@ -800,29 +808,29 @@ let rec search_physical sexp ~contained =
     match sexp with
     | Atom _ -> `Not_found
     | List lst ->
-        let rec loop i = function
-          | [] -> `Not_found
-          | h :: t ->
-              let res = search_physical h ~contained in
-              match res with
-              | `Not_found -> loop (i + 1) t
-              | #found as found -> `Pos (i, found)
-        in
-        loop 0 lst
+      let rec loop i = function
+        | [] -> `Not_found
+        | h :: t ->
+          let res = search_physical h ~contained in
+          match res with
+          | `Not_found -> loop (i + 1) t
+          | #found as found -> `Pos (i, found)
+      in
+      loop 0 lst
 
 let rec subst_found sexp ~subst = function
   | `Found -> subst
   | `Pos (pos, found) ->
-      match sexp with
-      | Atom _ ->
-          failwith "Sexplib.Sexp.subst_found: atom when position requested"
-      | List lst ->
-          let rec loop acc pos = function
-            | [] ->
-                failwith
-                  "Sexplib.Sexp.subst_found: short list when position requested"
-            | h :: t when pos <> 0 -> loop (h :: acc) (pos - 1) t
-            | h :: t ->
-                List (List.rev_append acc (subst_found h ~subst found :: t))
-          in
-          loop [] pos lst
+    match sexp with
+    | Atom _ ->
+      failwith "Sexplib.Sexp.subst_found: atom when position requested"
+    | List lst ->
+      let rec loop acc pos = function
+        | [] ->
+          failwith
+            "Sexplib.Sexp.subst_found: short list when position requested"
+        | h :: t when pos <> 0 -> loop (h :: acc) (pos - 1) t
+        | h :: t ->
+          List (List.rev_append acc (subst_found h ~subst found :: t))
+      in
+      loop [] pos lst
