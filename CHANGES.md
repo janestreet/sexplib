@@ -5,6 +5,8 @@
 
 - Remove the `location` field from the `parse_error` type.
 
+- Dropped dependency on Base.
+
 ## v0.10
 
 - Added `val Sexp.is_unit : t -> bool`

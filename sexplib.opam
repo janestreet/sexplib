@@ -9,9 +9,9 @@ build: [
   ["jbuilder" "build" "-p" name "-j" jobs]
 ]
 depends: [
-  "base"
   "parsexp"
-  "jbuilder" {build & >= "1.0+beta12"}
+  "sexplib0"
+  "jbuilder" {build & >= "1.0+beta18.1"}
   "num"
 ]
 available: [ ocaml-version >= "4.04.1" ]

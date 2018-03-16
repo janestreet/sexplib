@@ -1,7 +1,7 @@
 (** Utility Module for S-expression Conversions *)
 
 open Bigarray
-include module type of Base.Exported_for_specific_uses.Sexplib.Conv
+include module type of Sexplib0.Sexp_conv
 
 (** {6 Type aliases} *)
 

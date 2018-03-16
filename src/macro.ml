@@ -27,7 +27,7 @@ type 'a annot_conv = (* 'a Sexp.Annotated.conv = *)
 let sexp_of_conv sexp_of_a = function
   | `Result a -> Sexp.List [ Atom "Result"; a |> sexp_of_a ]
   | `Error (exn, sexp) ->
-    List [ Atom "Error"; List [ exn |> Base.Exn.sexp_of_t; sexp ] ]
+    List [ Atom "Error"; List [ Sexplib0.Sexp_conv.sexp_of_exn exn; sexp ] ]
 
 let sexp_of_annot_conv sexp_of_a = function
   | `Result a -> Sexp.List [ Atom "Result"; a |> sexp_of_a ]
@@ -35,7 +35,7 @@ let sexp_of_annot_conv sexp_of_a = function
     List
       [ Atom "Error"
       ; List
-          [ exn |> Base.Exn.sexp_of_t
+          [ Sexplib0.Sexp_conv.sexp_of_exn exn
           ; annotated_sexp |> Sexp.Annotated.get_sexp ] ]
 
 module List = struct

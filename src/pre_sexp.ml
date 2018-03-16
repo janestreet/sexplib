@@ -2,16 +2,14 @@
 
 open Format
 open Bigarray
-module Sexplib = Base.Exported_for_specific_uses.Sexplib
-module Conv = Sexplib.Conv (* conv.ml depends on us so we can
-                              only use this module *)
+module Sexplib = Sexplib0
+module Conv = Sexplib.Sexp_conv (* conv.ml depends on us so we can only use this module *)
 
 include Type
 
 type bigstring = (char, int8_unsigned_elt, c_layout) Array1.t
 include (Sexplib.Sexp : module type of struct include Sexplib.Sexp end with type t := t)
 include Private
-let compare = Sexplib.Sexp.compare
 
 (* Output of S-expressions to I/O-channels *)
 
@@ -306,7 +304,7 @@ end = struct
       Annot.List ({ start_pos; end_pos }, annot, sexp)
 
   and annotate_sexp_list sexps iter =
-    Base.List.map sexps ~f:(fun sexp -> annotate_sexp sexp iter)
+    List.rev (List.rev_map (fun sexp -> annotate_sexp sexp iter) sexps)
 
   module Bare_sexp = struct
     module Impl = Parsexp.Eager
