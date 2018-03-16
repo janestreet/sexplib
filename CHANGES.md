@@ -1,4 +1,4 @@
-## git version
+## v0.11
 
 - Switched `Sexplib`'s sexp parser to use the `Parsexp` library.
   See https://github.com/janestreet/parsexp
