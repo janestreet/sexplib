@@ -2,7 +2,6 @@
  ((name sexplib_unix)
   (public_name sexplib.unix)
   (libraries (sexplib unix))
-  (flags (:standard -safe-string))
   (preprocess no_preprocessing)))
 
 

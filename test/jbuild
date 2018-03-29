@@ -6,7 +6,6 @@
               sexplib
               str
               unix))
-  (flags (:standard -safe-string))
   (preprocess (pps (ppx_jane ppxlib.runner)))))
 
 
