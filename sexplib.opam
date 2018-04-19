@@ -14,7 +14,7 @@ depends: [
   "jbuilder" {build & >= "1.0+beta18.1"}
   "num"
 ]
-available: [ ocaml-version >= "4.04.1" ]
+available: [ ocaml-version >= "4.04.2" ]
 descr: "
 Library for serializing OCaml values to and from S-expressions
 
