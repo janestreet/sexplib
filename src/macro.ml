@@ -89,11 +89,66 @@ module Vars = struct
     List.fold_left (fun vars v -> add v vars) set xs
   let of_list xs =
     add_list empty xs
+  let filter ~f xs = filter f xs
 end
-(* Map from template names to template argument lists and bodies.  The argument
-   lists are not necessary for the formal evaluation rules, but are useful to
-   catch errors early. *)
-module Bindings = Map.Make (String)
+
+module Value : sig
+  type sexp =
+    | Atom of string
+    | List of sexp list
+  type t = sexp list
+
+  val of_sexp : Sexp.t -> sexp
+  val to_sexp : sexp -> Sexp.t
+
+  val of_sexps : Sexp.t list -> t
+  val to_sexps : t -> Sexp.t list
+end = struct
+  type sexp = Sexp.t =
+    | Atom of string
+    | List of sexp list
+  type t = Sexp.t list
+
+  let of_sexp x = x
+  let to_sexp x = x
+
+  let of_sexps x = x
+  let to_sexps x = x
+end
+
+let _ = Value.of_sexp
+
+module Bindings : sig
+  type t
+  type entry =
+    | Value of Value.t
+    | Function of
+        {
+          args : string list;
+          body : Sexp.t list;
+          (* environment to evaluate the [body] in, to be extended with [args] *)
+          environment : t;
+        }
+  val empty : t
+  val find : string -> t -> entry
+  val add : string -> entry -> t -> t
+  val mem : string -> t -> bool
+end = struct
+  module M = Map.Make (String)
+  type t = entry M.t
+  and entry =
+    | Value of Value.t
+    | Function of
+        {
+          args : string list;
+          body : Sexp.t list;
+          environment : t;
+        }
+  let empty = M.empty
+  let find key m = M.find key m
+  let add key data m = M.add key data m
+  let mem key m = M.mem key m
+end
 
 (* A physical association list mapping sexps after :include are inlined to sexps
    that they originate from.  This map allows us to recover the original sexp
@@ -104,13 +159,17 @@ let rec find_arg result trail =
   try find_arg (List.assq result trail) trail
   with Not_found -> result
 
-let atom = function
-  | Sexp.Atom str -> str
-  | Sexp.List _ as t -> raise (macro_error "Atom expected" t)
+let v_atom : Value.sexp -> string = function
+  | Atom str -> str
+  | List _ as t -> raise (macro_error "Atom expected" (Value.to_sexp t))
 
-let atoms = function
-  | Sexp.Atom _ as t -> raise (macro_error "Atom list expected" t)
-  | Sexp.List ts -> List.map ~f:atom ts
+let atom : Sexp.t -> string = function
+  | Atom str -> str
+  | List _ as t -> raise (macro_error "Atom expected" t)
+
+let atoms : Sexp.t -> string list = function
+  | Atom _ as t -> raise (macro_error "Atom list expected" t)
+  | List ts -> List.map ~f:atom ts
 
 (* If [~raise_if_any:true], raise an error if a free variable is encountered. *)
 let free_variables_gen ~raise_if_any ts =
@@ -149,10 +208,10 @@ let expand_local_macros_exn ~trail ts =
   let add_result =
     match trail with
     | None -> fun ~arg:_ ~result:_ -> ()
-    | Some ref -> fun ~arg ~result -> ref := (result, arg) :: !ref
+    | Some ref -> fun ~arg ~result -> ref := (Value.to_sexp result, arg) :: !ref
   in
   (* tail-recursive *)
-  let rec expand_list defs ts acc =
+  let rec expand_list defs ts acc : Value.t =
     match ts with
     | Sexp.List (Sexp.Atom ":let" :: v :: args :: def) as t :: ts ->
       if def = []
@@ -167,16 +226,28 @@ let expand_local_macros_exn ~trail ts =
              (macro_error (sprintf "Unused variables: %s"
                              (String.concat ", " (Vars.elements unused))) t);
       let undeclared = Vars.diff free args_set in
-      if not (Vars.is_empty undeclared)
-      then raise
-             (macro_error (sprintf "Undeclared arguments in let: %s"
-                             (String.concat ", " (Vars.elements undeclared))) t);
+      (* All the variables should be bound in the environment because we have already
+         checked that the file has no free variables. If not, that is a bug. *)
+      (match
+         Vars.filter undeclared ~f:(fun v -> not (Bindings.mem v defs))
+         |> Vars.elements
+       with
+       | [] -> ()
+       | _ :: _ as undeclared ->
+         raise (macro_error (sprintf "Undeclared variables in let (bug in sexplib?): %s"
+                               (String.concat ", " undeclared)) t));
       begin match List.find_a_dup args with
       | None -> ()
       | Some dup ->
         raise (macro_error (sprintf "Duplicated let argument: %s" dup) t)
       end;
-      expand_list (Bindings.add v (args, def) defs) ts acc
+      expand_list (
+        Bindings.add v (Function {
+          args;
+          body = def;
+          environment = defs; (* technically we leak memory by using the whole [defs] but
+                                 it's unlikely that anyone would ever notice. *)
+        }) defs) ts acc
     | t :: ts ->
       expand_list defs ts (List.rev_append (expand defs t) acc)
     | [] -> List.rev acc
@@ -184,7 +255,7 @@ let expand_local_macros_exn ~trail ts =
     match t with
     | Sexp.Atom (":use" | ":let" | ":include" | ":concat" as s) ->
       raise (macro_error ("Unexpected " ^ s) t)
-    | Sexp.Atom _ as t -> [t]
+    | Sexp.Atom _ as t -> Value.of_sexps [t]
     | Sexp.List (Sexp.Atom ":use" :: v :: args) ->
       let split_arg = function
         | Sexp.List (Sexp.Atom v :: def) -> v, def
@@ -194,47 +265,59 @@ let expand_local_macros_exn ~trail ts =
         (* It is important we evaluate with respect to defs here, to avoid one
            argument shadowing the next one. *)
         let def = expand_list defs def [] in
-        Bindings.add v ([], def) arg_defs
-      in
-      let formal_args, body =
-        try Bindings.find (atom v) defs
-        with Not_found -> raise (macro_error "Undefined variable" v)
+        Bindings.add v (Value def) arg_defs
       in
       let args = List.map ~f:split_arg args in
       let arg_names = List.map ~f:(fun (v, _) -> v) args in
-      if arg_names <> formal_args then
-        raise (macro_error
-                 (sprintf ("Formal args of %s differ from supplied args,"
-                           ^^ " formal args are [%s]")
-                    (atom v)
-                    (String.concat ", " formal_args))
-                 t);
-      let defs = List.fold_left evaluate_and_bind Bindings.empty args in
-      expand_list defs body []
+      (match Bindings.find (atom v) defs with
+       | exception Not_found -> raise (macro_error "Undefined variable" v)
+       | Value value ->
+         (match arg_names with
+          | [] ->
+            value
+          | _ :: _ ->
+            raise (
+              macro_error
+                (sprintf
+                   ("%s is not a function, but it was applied to arguments")
+                   (atom v))
+                t)
+         )
+       | Function { args = formal_args; body; environment = closure_defs } ->
+         if arg_names <> formal_args then
+           raise (macro_error
+                    (sprintf ("Formal args of %s differ from supplied args,"
+                              ^^ " formal args are [%s]")
+                       (atom v)
+                       (String.concat ", " formal_args))
+                    t);
+         let defs = List.fold_left evaluate_and_bind closure_defs args in
+         expand_list defs body [])
     | Sexp.List (Sexp.Atom ":concat" :: ts) as t ->
       let ts = expand_list defs ts [] in
       let ts =
-        try List.map ~f:atom ts
+        try List.map ~f:v_atom ts
         with _ ->
           let error =
-            let appl = Sexp.List (Sexp.Atom ":concat" :: ts) in
-            sprintf "Malformed concat application: %s" (Sexp.to_string appl)
+            let appl = Sexp.List (Sexp.Atom ":concat" :: Value.to_sexps ts) in
+            sprintf "Malformed concat application: %s" (Sexp.to_string_hum appl)
           in
           raise (macro_error error t)
       in
-      let result = Sexp.Atom (String.concat "" ts) in
+      let result = Value.Atom (String.concat "" ts) in
       add_result ~arg:t ~result;
       [result]
     | Sexp.List ts ->
       let ts = expand_list defs ts [] in
-      let result = Sexp.List ts in
+      let result = Value.List ts in
       add_result ~arg:t ~result;
       [result]
   in
   expand_list Bindings.empty ts []
 
 let expand_local_macros ts =
-  try `Result (expand_local_macros_exn ts ~trail:None)
+  try `Result (
+    Value.to_sexps (expand_local_macros_exn ts ~trail:None))
   with Of_sexp_error (e, t) -> `Error (e, t)
 
 module type Sexp_loader = sig
@@ -406,10 +489,10 @@ module Loader (S : Sexp_loader) = struct
           raise original_exn
       end
 
-  let load_sexps_conv file f = load ~multiple:true file f
+  let load_sexps_conv file f = load ~multiple:true file (fun v -> f (Value.to_sexp v))
 
   let load_sexp_conv file f =
-    load ~multiple:false file f
+    load ~multiple:false file (fun v -> f (Value.to_sexp v))
     >>= function
     | [a] -> M.return a
     | _ -> assert false

@@ -130,6 +130,25 @@ let scan_sexps_conv ?buf ~f lexbuf =
   let coll acc sexp = f sexp :: acc in
   List.rev (scan_fold_sexps ?buf ~f:coll ~init:[] lexbuf)
 
+let sexp_conversion_error_message
+      ?containing_sexp
+      ?location
+      ?invalid_sexp
+      ()
+      ~exn : t =
+  List
+    (List.concat
+       [ [ Atom "Of_sexp_error" ]
+       ; (match location with None -> [] | Some x -> [ Atom x ])
+       ; [ match exn with
+           | Failure x -> Atom x
+           |_ -> Conv.sexp_of_exn exn ]
+       ; (match invalid_sexp with
+          | None -> []
+          | Some x -> [ List [ Atom "invalid_sexp"; x ]])
+       ; (match containing_sexp with
+          | None -> []
+          | Some x -> [ List [ Atom "containing_sexp"; x ]])])
 
 (* Partial parsing *)
 
@@ -143,12 +162,8 @@ module Annot = struct
   let () =
     Conv.Exn_converter.add ~finalise:false [%extension_constructor Conv_exn]
       (function
-        | Conv_exn (loc, exn) ->
-          List [
-            Atom "Sexplib.Sexp.Annotated.Conv_exn";
-            Atom loc;
-            Conv.sexp_of_exn exn;
-          ]
+        | Conv_exn (location, exn) ->
+          sexp_conversion_error_message () ~location ~exn
         | _ -> assert false)
 
   type stack = {
@@ -181,6 +196,18 @@ module Annot = struct
     try loop annot_sexp; None
     with Annot_sexp res -> Some res
 end
+
+let () =
+  Conv.Exn_converter.add ~finalise:false
+    [%extension_constructor Of_sexp_error]
+    (function
+      | Of_sexp_error (Annot.Conv_exn (location, exn), invalid_sexp) ->
+        sexp_conversion_error_message () ~location ~invalid_sexp ~exn
+      | Of_sexp_error (exn, invalid_sexp) ->
+        sexp_conversion_error_message () ~invalid_sexp ~exn
+      | _ ->
+        (* Reaching this branch indicates a bug in sexplib. *)
+        assert false)
 
 module Parse_pos = struct
   type t =
@@ -762,14 +789,10 @@ module Of_string_conv_exn = struct
     Conv.Exn_converter.add ~finalise:false [%extension_constructor E]
       (function
         | E osce ->
-          List [
-            Atom "Sexplib.Sexp.Of_string_conv_exn.E";
-            List [
-              List [Atom "exc"; Conv.sexp_of_exn osce.exc];
-              List [Atom "sexp"; osce.sexp];
-              List [Atom "sub_sexp"; osce.sub_sexp];
-            ]
-          ]
+          sexp_conversion_error_message ()
+            ~invalid_sexp:osce.sub_sexp
+            ~exn:osce.exc
+            ~containing_sexp:osce.sexp
         | _ -> assert false)
 end
 
