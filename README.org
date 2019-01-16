@@ -7,8 +7,33 @@ s-expressions.  S-expressions are defined by the following type:
 type sexp = Atom of string | List of sexp list
 #+end_src
 
-and are rendered as parenthesized lists of strings, e.g., =(This (is
-an) (s expression))=.
+
+** Usage example
+
+In this example we build an Sexp expression that corresponds to
+=(This (is an) (s expression))=, serialize a Sexp expression into a string,
+and then parse a string into an Sexp.
+
+#+begin_src ocaml
+open Sexplib
+
+let () =
+  (* Build an Sexp from: (This (is an) (s expression)) *)
+  let exp1 = Sexp.(List [
+    Atom "This";
+    List [Atom "is"; Atom "an"];
+    List [Atom "s"; Atom "expression"]
+  ]) in
+  (* Serialize an Sexp object into a string *)
+  print_endline (Sexp.to_string exp1);
+  (* Parse a string and produce a Sexp object  *)
+  let exp2 = Sexp.of_string "(This (is an) (s expression))" in
+  (* Ensure we parsed what we expected. *)
+  assert (Sexp.compare exp1 exp2 = 0)
+#+end_src
+
+
+** About
 
 This library is often used in conjunction with =ppx_sexp_conv=, a
 syntax extension which generates code from type definitions for
