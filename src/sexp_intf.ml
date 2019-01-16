@@ -13,6 +13,8 @@ module type S = sig
 
   val compare : t -> t -> int
 
+  val equal : t -> t -> bool
+
   (** {6 Defaults} *)
 
   val default_indent : int ref

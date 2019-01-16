@@ -7,12 +7,11 @@ s-expressions.  S-expressions are defined by the following type:
 type sexp = Atom of string | List of sexp list
 #+end_src
 
-
 ** Usage example
 
-In this example we build an Sexp expression that corresponds to
-=(This (is an) (s expression))=, serialize a Sexp expression into a string,
-and then parse a string into an Sexp.
+In this example we build an s-expression that corresponds to =(This
+(is an) (s expression))=, serialize that into a string, and then parse
+the string back into an s-expression.
 
 #+begin_src ocaml
 open Sexplib
