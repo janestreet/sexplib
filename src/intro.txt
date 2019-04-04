@@ -4,6 +4,7 @@
 
 @all_modules
 
+
 {2 What is Sexplib?}
 This library contains functionality for parsing and pretty-printing
 S-expressions.  In addition to that it contains a preprocessing module for
@@ -119,19 +120,18 @@ and its value (second element).  E.g.:
   (bar "some string")
 )]}
 
-Type specifications of records allow the use of a special type
-[sexp_option] which indicates that a record field should be optional.
+Type specifications of records allow the use of a special attribute
+[@sexp.option] which indicates that a record field should be optional.
 E.g.:
 
 @color{[type t =
 {
   x : int option;
-  y : int sexp_option;
+  y : int option [@sexp.option];
 }]}
 
-The type [sexp_option] is equivalent to ordinary options, but is
-treated specially by the code generator.  The above would lead to the
-following equivalences of values and S-expressions:
+The attribute [@sexp.option] is treated specially by the code generator. The
+above would lead to the following equivalences of values and S-expressions:
 
 @color{[{
   x = Some 1;
@@ -158,14 +158,14 @@ And:
   (x none)
 )]}
 
-Note how [sexp_option] allows you to leave away record fields
+Note how [@sexp.option] allows you to leave away record fields
 that should default to [None].  It is also unnecessary (and
 actually wrong) now to write down such a value as an option, i.e.
 the [some]-tag must be dropped if the field should be defined.
 
-The types [sexp_list], [sexp_array], and [sexp_bool] can be
-used in ways similar to the type [sexp_option].  They assume the empty
-list, empty array, and false value respectively as default values.
+The attributes [@sexp.list], [@sexp.array], and [@sexp.bool] can be used in ways
+similar to the attribute [@sexp.option]. They assume the empty list, empty
+array, and false value respectively as default values.
 
 {9 Conversion of sum types}
 
@@ -280,10 +280,9 @@ This may be, because we do not have S-expression converters for them,
 or because we do not want to apply them in a particular type context,
 e.g. if the resulting S-expression should be printed out but without
 superfluous information.  To prevent the preprocessor from generating
-calls to converters, simply apply the qualifier [sexp_opaque]
-as if it were a type constructor, e.g.:
+calls to converters, simply apply the attribute [@sexp.opaque], e.g.:
 
-@color{[type foo = int * stuff sexp_opaque with sexp]}
+@color{[type foo = int * (stuff [@sexp.opaque]) with sexp]}
 
 Thus, there is no need to specify converters for type [stuff],
 and if there are any, they will not be used in this particular context.
