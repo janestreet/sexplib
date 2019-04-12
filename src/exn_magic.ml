@@ -1,5 +1,11 @@
+module Extension_constructor = struct
+  [@@@ocaml.warning "-3"]
+  let of_val = Obj.extension_constructor
+end
+
+
 let register exc exc_name =
-  Conv.Exn_converter.add (Obj.extension_constructor exc) (fun _exc -> Sexp.Atom exc_name)
+  Conv.Exn_converter.add (Extension_constructor.of_val exc) (fun _exc -> Sexp.Atom exc_name)
 
 let magic_field repr n = Obj.magic (Obj.field repr n)
 
@@ -9,7 +15,7 @@ let register1 make_exc exc_name
     make_exc
       (Obj.magic None)
   in
-  Conv.Exn_converter.add (Obj.extension_constructor exc) (fun exc ->
+  Conv.Exn_converter.add (Extension_constructor.of_val exc) (fun exc ->
     let repr = Obj.repr exc in
     let sexp1 = sexp_of_arg1 (magic_field repr 1) in
     Sexp.List [
@@ -23,7 +29,7 @@ let register2 make_exc exc_name
     make_exc
       (Obj.magic None) (Obj.magic None)
   in
-  Conv.Exn_converter.add (Obj.extension_constructor exc) (fun exc ->
+  Conv.Exn_converter.add (Extension_constructor.of_val exc) (fun exc ->
     let repr = Obj.repr exc in
     let sexp1 = sexp_of_arg1 (magic_field repr 1) in
     let sexp2 = sexp_of_arg2 (magic_field repr 2) in
@@ -38,7 +44,7 @@ let register3 make_exc exc_name
     make_exc
       (Obj.magic None) (Obj.magic None) (Obj.magic None)
   in
-  Conv.Exn_converter.add (Obj.extension_constructor exc) (fun exc ->
+  Conv.Exn_converter.add (Extension_constructor.of_val exc) (fun exc ->
     let repr = Obj.repr exc in
     let sexp1 = sexp_of_arg1 (magic_field repr 1) in
     let sexp2 = sexp_of_arg2 (magic_field repr 2) in
@@ -54,7 +60,7 @@ let register4 make_exc exc_name
     make_exc
       (Obj.magic None) (Obj.magic None) (Obj.magic None) (Obj.magic None)
   in
-  Conv.Exn_converter.add (Obj.extension_constructor exc) (fun exc ->
+  Conv.Exn_converter.add (Extension_constructor.of_val exc) (fun exc ->
     let repr = Obj.repr exc in
     let sexp1 = sexp_of_arg1 (magic_field repr 1) in
     let sexp2 = sexp_of_arg2 (magic_field repr 2) in
@@ -71,7 +77,7 @@ let register5 make_exc exc_name
     make_exc
       (Obj.magic None) (Obj.magic None) (Obj.magic None) (Obj.magic None) (Obj.magic None)
   in
-  Conv.Exn_converter.add (Obj.extension_constructor exc) (fun exc ->
+  Conv.Exn_converter.add (Extension_constructor.of_val exc) (fun exc ->
     let repr = Obj.repr exc in
     let sexp1 = sexp_of_arg1 (magic_field repr 1) in
     let sexp2 = sexp_of_arg2 (magic_field repr 2) in
@@ -91,7 +97,7 @@ let register6 make_exc exc_name
       (Obj.magic None) (Obj.magic None) (Obj.magic None) (Obj.magic None) (Obj.magic None)
       (Obj.magic None)
   in
-  Conv.Exn_converter.add (Obj.extension_constructor exc) (fun exc ->
+  Conv.Exn_converter.add (Extension_constructor.of_val exc) (fun exc ->
     let repr = Obj.repr exc in
     let sexp1 = sexp_of_arg1 (magic_field repr 1) in
     let sexp2 = sexp_of_arg2 (magic_field repr 2) in
@@ -112,7 +118,7 @@ let register7 make_exc exc_name
       (Obj.magic None) (Obj.magic None) (Obj.magic None) (Obj.magic None) (Obj.magic None)
       (Obj.magic None) (Obj.magic None)
   in
-  Conv.Exn_converter.add (Obj.extension_constructor exc) (fun exc ->
+  Conv.Exn_converter.add (Extension_constructor.of_val exc) (fun exc ->
     let repr = Obj.repr exc in
     let sexp1 = sexp_of_arg1 (magic_field repr 1) in
     let sexp2 = sexp_of_arg2 (magic_field repr 2) in
@@ -134,7 +140,7 @@ let register8 make_exc exc_name
       (Obj.magic None) (Obj.magic None) (Obj.magic None) (Obj.magic None) (Obj.magic None)
       (Obj.magic None) (Obj.magic None) (Obj.magic None)
   in
-  Conv.Exn_converter.add (Obj.extension_constructor exc) (fun exc ->
+  Conv.Exn_converter.add (Extension_constructor.of_val exc) (fun exc ->
     let repr = Obj.repr exc in
     let sexp1 = sexp_of_arg1 (magic_field repr 1) in
     let sexp2 = sexp_of_arg2 (magic_field repr 2) in
@@ -157,7 +163,7 @@ let register9 make_exc exc_name
       (Obj.magic None) (Obj.magic None) (Obj.magic None) (Obj.magic None) (Obj.magic None)
       (Obj.magic None) (Obj.magic None) (Obj.magic None) (Obj.magic None)
   in
-  Conv.Exn_converter.add (Obj.extension_constructor exc) (fun exc ->
+  Conv.Exn_converter.add (Extension_constructor.of_val exc) (fun exc ->
     let repr = Obj.repr exc in
     let sexp1 = sexp_of_arg1 (magic_field repr 1) in
     let sexp2 = sexp_of_arg2 (magic_field repr 2) in
@@ -181,7 +187,7 @@ let register10 make_exc exc_name
       (Obj.magic None) (Obj.magic None) (Obj.magic None) (Obj.magic None) (Obj.magic None)
       (Obj.magic None) (Obj.magic None) (Obj.magic None) (Obj.magic None) (Obj.magic None)
   in
-  Conv.Exn_converter.add (Obj.extension_constructor exc) (fun exc ->
+  Conv.Exn_converter.add (Extension_constructor.of_val exc) (fun exc ->
     let repr = Obj.repr exc in
     let sexp1 = sexp_of_arg1 (magic_field repr 1) in
     let sexp2 = sexp_of_arg2 (magic_field repr 2) in
