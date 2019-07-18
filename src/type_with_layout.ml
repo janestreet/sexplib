@@ -7,8 +7,20 @@ end
 module Make (Pos : sig type t val sexp_of_t : t -> Type.t end) = struct
 
   module T = struct
+    (** In [Atom (_, s, opt)], [s] is the unescaped string, that is the argument of
+        [Type.Atom]. When [opt] is defined, it is the source syntax of [s], that is a
+        string that can be printed as is if one wants to parse and print preserving
+        syntax. This is usually set for quoted atoms (to preserve the fact that were
+        quoted), but it can be useful to do the reverse: set it for atoms that can be
+        parsed unquoted but would be printed with quotes, to preserve the lack of quotes.
+        For instance:
+        Atom (_, "a", None) should be printed {|a|}
+        Atom (_, "a b", None) should be printed {|"a b"|}
+        Atom (_, "a", Some "\"a\"") should be printed {|"a"|}
+        Atom (_, "a b", Some "a b") should be printed {|a b|} or may raise, as it is
+        an error to constructed such an atom (doesn't parse back) *)
     type t =
-      | Atom of Pos.t * string * string option (* second is quoted representation *)
+      | Atom of Pos.t * string * string option
       | List of Pos.t * t_or_comment list * Pos.t (* positions of left and right parens *)
     and t_or_comment =
       | Sexp of t
