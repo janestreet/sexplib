@@ -26,7 +26,7 @@
     let atom (x, y) =
       let (pos, y) =
         match y with
-        | None -> (start_pos (), None)
+        | None -> (start_pos (), Some x)
         | Some (pos, x) -> (coerce pos, Some x)
       in
       Atom (pos, x, y)
@@ -114,4 +114,3 @@ sexps
 /* for debugging positions */
 sexps_abs
   : rev_sexps_abs EOF { List.rev $1 }
-
