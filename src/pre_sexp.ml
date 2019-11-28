@@ -1,7 +1,7 @@
 (* Sexp: Module for handling S-expressions (I/O, etc.) *)
 
 open Format
-open Bigarray
+open Bigarray_compat
 module Sexplib = Sexplib0
 module Conv = Sexplib.Sexp_conv (* conv.ml depends on us so we can only use this module *)
 

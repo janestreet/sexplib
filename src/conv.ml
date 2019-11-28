@@ -1,5 +1,5 @@
 open Printf
-open Bigarray
+open Bigarray_compat
 
 include Sexplib0.Sexp_conv
 open Sexp

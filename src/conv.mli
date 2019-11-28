@@ -1,6 +1,6 @@
 (** Utility Module for S-expression Conversions *)
 
-open Bigarray
+open Bigarray_compat
 include module type of Sexplib0.Sexp_conv
 
 (** {6 Type aliases} *)

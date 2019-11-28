@@ -1,7 +1,7 @@
 (** Sexp_intf: interface specification for handling S-expressions (I/O, etc.) *)
 
 open Format
-open Bigarray
+open Bigarray_compat
 
 module type S = sig
 
