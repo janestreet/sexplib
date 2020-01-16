@@ -5,6 +5,8 @@ open Bigarray
 
 module type S = sig
 
+  module Grammar = Sexplib0.Sexp.Grammar
+
   (** Type of S-expressions *)
   type t = Type.t = Atom of string | List of t list
 
@@ -585,6 +587,7 @@ module type S = sig
   (** [t_of_sexp sexp] maps S-expressions which are part of a type with
       automated S-expression conversion to themselves. *)
 
+  val t_sexp_grammar : Sexplib0.Grammar.t
 
   (** {6 Utilities for conversion error handling} *)
 

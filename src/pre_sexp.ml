@@ -8,7 +8,8 @@ module Conv = Sexplib.Sexp_conv (* conv.ml depends on us so we can only use this
 include Type
 
 type bigstring = (char, int8_unsigned_elt, c_layout) Array1.t
-include (Sexplib.Sexp : module type of struct include Sexplib.Sexp end with type t := t)
+module Grammar = Sexplib0.Sexp.Grammar
+include (Sexplib.Sexp : module type of struct include Sexplib.Sexp end with type t := t and module Grammar := Sexplib.Sexp.Grammar)
 include Private
 
 (* Output of S-expressions to I/O-channels *)
