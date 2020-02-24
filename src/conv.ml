@@ -36,10 +36,12 @@ let sexp_of_float_mat mat =
   let m = Array2.dim1 mat in
   let n = Array2.dim2 mat in
   let lst_ref = ref [] in
-  for col = n downto 1 do
-    let vec = Array2.slice_right mat col in
-    for row = m downto 1 do
-      lst_ref := sexp_of_float vec.{row} :: !lst_ref
+  (* It's surprising that we serialize [Fortran_layout] matrices in row-major order. I can
+     only speculate that it was chosen for readability. The cache performance is
+     irrelevant because people who care won't serialize to sexp. *)
+  for row = n downto 1 do
+    for col = m downto 1 do
+      lst_ref := sexp_of_float mat.{col, row} :: !lst_ref
     done
   done;
   List (sexp_of_int m :: sexp_of_int n :: !lst_ref)
