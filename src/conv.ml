@@ -50,6 +50,7 @@ let sexp_of_float_mat mat =
 let sexp_of_float32_mat (mat : float32_mat) = sexp_of_float_mat mat
 let sexp_of_float64_mat (mat : float64_mat) = sexp_of_float_mat mat
 let sexp_of_mat (mat : mat) = sexp_of_float_mat mat
+let bigstring_sexp_grammar = Sexplib0.Raw_grammar.Inline (Atom String)
 
 let bigstring_of_sexp sexp =
   match sexp with
@@ -86,6 +87,9 @@ let empty_float64_vec = create_float64_vec 0
 let float32_vec_of_sexp = float_vec_of_sexp empty_float32_vec create_float32_vec
 let float64_vec_of_sexp = float_vec_of_sexp empty_float64_vec create_float64_vec
 let vec_of_sexp = float_vec_of_sexp empty_float64_vec create_float64_vec
+let vec_sexp_grammar = Sexplib0.Raw_grammar.Inline (List [ Many (Atom Float) ])
+let float32_vec_sexp_grammar = vec_sexp_grammar
+let float64_vec_sexp_grammar = vec_sexp_grammar
 
 let check_too_much_data sexp data res =
   if data = [] then res else of_sexp_error "float_mat_of_sexp: too much data" sexp
@@ -123,6 +127,14 @@ let create_float64_mat = Array2.create float64 fortran_layout
 let float32_mat_of_sexp = float_mat_of_sexp create_float32_mat
 let float64_mat_of_sexp = float_mat_of_sexp create_float64_mat
 let mat_of_sexp = float_mat_of_sexp create_float64_mat
+
+let mat_sexp_grammar =
+  Sexplib0.Raw_grammar.Inline
+    (List [ One (Atom Int); One (Atom Int); Many (Atom Float) ])
+;;
+
+let float32_mat_sexp_grammar = mat_sexp_grammar
+let float64_mat_sexp_grammar = mat_sexp_grammar
 let string_of__of__sexp_of to_sexp x = Sexp.to_string (to_sexp x)
 
 let of_string__of__of_sexp of_sexp s =

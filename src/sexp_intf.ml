@@ -4,7 +4,7 @@ open Format
 open Bigarray
 
 module type S = sig
-  module Grammar = Sexplib0.Sexp.Grammar
+  module Raw_grammar = Sexplib0.Sexp.Raw_grammar
 
   (** Type of S-expressions *)
   type t = Type.t =
@@ -579,7 +579,7 @@ module type S = sig
       automated S-expression conversion to themselves. *)
   val t_of_sexp : t -> t
 
-  val t_sexp_grammar : Sexplib0.Grammar.t
+  val t_sexp_grammar : Sexplib0.Raw_grammar.t
 
   (** {6 Utilities for conversion error handling} *)
 

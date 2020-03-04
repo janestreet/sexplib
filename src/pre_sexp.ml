@@ -11,7 +11,7 @@ include Type
 
 type bigstring = (char, int8_unsigned_elt, c_layout) Array1.t
 
-module Grammar = Sexplib0.Sexp.Grammar
+module Raw_grammar = Sexplib0.Sexp.Raw_grammar
 
 include (
   Sexplib.Sexp :
@@ -19,7 +19,7 @@ include (
     include Sexplib.Sexp
   end
   with type t := t
-   and module Grammar := Sexplib.Sexp.Grammar)
+   and module Raw_grammar := Sexplib.Sexp.Raw_grammar)
 
 include Private
 
