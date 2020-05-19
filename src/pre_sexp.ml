@@ -268,24 +268,7 @@ module Parse_pos = struct
   let with_buf_pos t buf_pos = { t with buf_pos }
 end
 
-module Cont_state = struct
-  type t = Parsexp.Private.Parser_automaton.Old_parser_cont_state.t =
-    | Parsing_toplevel_whitespace
-    | Parsing_nested_whitespace
-    | Parsing_atom
-    | Parsing_list
-    | Parsing_sexp_comment
-    | Parsing_block_comment
-
-  let to_string = function
-    | Parsing_toplevel_whitespace -> "Parsing_toplevel_whitespace"
-    | Parsing_nested_whitespace -> "Parsing_nested_whitespace"
-    | Parsing_atom -> "Parsing_atom"
-    | Parsing_list -> "Parsing_list"
-    | Parsing_sexp_comment -> "Parsing_sexp_comment"
-    | Parsing_block_comment -> "Parsing_block_comment"
-  ;;
-end
+module Cont_state = Parsexp.Old_parser_cont_state
 
 type ('a, 't) parse_result =
   | Done of 't * Parse_pos.t
@@ -434,9 +417,8 @@ end = struct
   ;;
 
   let handle_parsexp_error state pos e =
-    let open Parsexp.Private.Parser_automaton in
-    let msg = Error.message e in
-    match Error.old_parser_exn e with
+    let msg = Parsexp.Parse_error.message e in
+    match Parsexp.Parse_error.Private.old_parser_exn e with
     | `Parse_error -> raise_parse_error state pos msg
     | `Failure -> failwith msg
   ;;
@@ -450,7 +432,7 @@ end = struct
       let offset = T.Impl.State.offset state in
       let next_pos = pos + (offset - previous_offset) in
       Done (result, parse_pos_of_state state next_pos)
-    | exception Parsexp.Private.Parser_automaton.Parse_error err ->
+    | exception Parsexp.Parse_error.Parse_error err ->
       handle_parsexp_error
         state
         (pos + (T.Impl.State.offset state - previous_offset))
