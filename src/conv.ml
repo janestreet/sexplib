@@ -115,8 +115,7 @@ let float_mat_of_sexp create_float_mat sexp =
           | h :: t ->
             vec.{row} <- float_of_sexp h;
             if row = m
-            then
-              if col = n then check_too_much_data sexp t res else loop_cols (col + 1) t
+            then if col = n then check_too_much_data sexp t res else loop_cols (col + 1) t
             else loop_rows (row + 1) t
         in
         loop_rows 1 data

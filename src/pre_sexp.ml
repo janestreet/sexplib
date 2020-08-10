@@ -433,10 +433,7 @@ end = struct
       let next_pos = pos + (offset - previous_offset) in
       Done (result, parse_pos_of_state state next_pos)
     | exception Parsexp.Parse_error.Parse_error err ->
-      handle_parsexp_error
-        state
-        (pos + (T.Impl.State.offset state - previous_offset))
-        err
+      handle_parsexp_error state (pos + (T.Impl.State.offset state - previous_offset)) err
 
   and mk_cont_state state stack =
     let parse_fun =
@@ -657,9 +654,7 @@ let of_string_bigstring loc my_parse ws_buf get_len get_sub str =
             (get_sub str 0 (get_len str))))
 ;;
 
-let of_string str =
-  of_string_bigstring "of_string" parse " " String.length String.sub str
-;;
+let of_string str = of_string_bigstring "of_string" parse " " String.length String.sub str
 
 let get_bstr_sub_str bstr pos len =
   let str = Bytes.create len in
