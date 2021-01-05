@@ -1,4 +1,3 @@
-#+UUID: ebda2b33-eba7-3c17-32c6-973eb4676455
 
 * Sexplib - S-Expressions for OCaml
 
