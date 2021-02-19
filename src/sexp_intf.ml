@@ -579,7 +579,7 @@ module type S = sig
       automated S-expression conversion to themselves. *)
   val t_of_sexp : t -> t
 
-  val t_sexp_grammar : Sexplib0.Private.Raw_grammar.t
+  val t_sexp_grammar : t Sexplib0.Private.Raw_grammar.t
 
   (** {6 Utilities for conversion error handling} *)
 
