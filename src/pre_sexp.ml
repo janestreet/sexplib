@@ -655,6 +655,7 @@ let of_string_bigstring loc my_parse ws_buf get_len get_sub str =
 ;;
 
 let of_string str = of_string_bigstring "of_string" parse " " String.length String.sub str
+let of_string_many str = Parsexp.Many.parse_string_exn str
 
 let get_bstr_sub_str bstr pos len =
   let str = Bytes.create len in
@@ -882,6 +883,11 @@ let gen_of_string_conv_exn of_string str f =
 
 let of_string_conv_exn str f = gen_of_string_conv_exn of_string str f
 let of_bigstring_conv_exn bstr f = gen_of_string_conv_exn of_bigstring bstr f
+
+let of_string_many_conv_exn str f =
+  let sexps = of_string_many str in
+  List.map (fun sexp -> gen_of_string_conv_exn (fun x -> x) sexp f) sexps
+;;
 
 (* Utilities for automated type conversions *)
 
