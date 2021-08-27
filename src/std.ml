@@ -56,4 +56,4 @@ let sexp_of_array = Conv.sexp_of_array
 let array_of_sexp = Conv.array_of_sexp
 let array_sexp_grammar = Conv.array_sexp_grammar
 let sexp_of_exn = Conv.sexp_of_exn
-let exn_sexp_grammar = Sexplib0.Sexp.t_sexp_grammar
+let exn_sexp_grammar = Conv.sexp_t_sexp_grammar

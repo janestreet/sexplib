@@ -20,6 +20,8 @@ include (
 
 include Private
 
+let t_sexp_grammar = Conv.sexp_t_sexp_grammar
+
 (* Output of S-expressions to I/O-channels *)
 
 let with_new_buffer oc f =
