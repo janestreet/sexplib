@@ -64,7 +64,7 @@ let%test_module "tests" =
         {|
         (raised (
           Of_sexp_error
-          "test_sexp_of_string.ml.t_of_sexp: unexpected sum tag"
+          "test_sexp_of_string.ml.t_of_sexp: unexpected variant constructor"
           (invalid_sexp C)
           (containing_sexp (C)))) |}]
     ;;
