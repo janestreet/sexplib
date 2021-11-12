@@ -2,7 +2,6 @@ open! Base
 open! Expect_test_helpers_core
 open Sexplib
 open Sexp_grammar_validation
-module Generator = Base_quickcheck.Generator
 
 let test m = validate_grammar m |> require_ok [%here]
 
@@ -145,5 +144,5 @@ module type S = module type of struct
   include Sexplib.Conv
 end
 
-module Completeness (M : S) : sig end = struct end
+module Completeness (_ : S) : sig end = struct end
 include Completeness (Test)
