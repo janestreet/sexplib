@@ -20,7 +20,6 @@ module Absolute : sig
 
   val sexp_of_t : t -> Type.t
   val origin : t (* first row, first column *)
-
   val of_lexing : Lexing.position -> t
   val diff : t -> t -> Relative.t
   val add : t -> Relative.t -> t

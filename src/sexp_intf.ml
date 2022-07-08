@@ -666,7 +666,6 @@ module type S = sig
       val return : 'a -> 'a t
       val bind : 'a t -> f:('a -> 'b t) -> 'b t
       val sexp : asexp -> unit t (* assumes that positions in [asexp] are relative *)
-
       val run : (char -> unit) -> unit t -> unit
     end
     with type asexp := t_or_comment
