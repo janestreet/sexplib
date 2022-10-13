@@ -29,7 +29,8 @@
       else d2 - 48 in
     val1 * 16 + val2
 
-  let found_newline ({ lex_curr_p; _ } as lexbuf) diff =
+  let found_newline lexbuf diff =
+    let lex_curr_p = lexbuf.lex_curr_p in
     lexbuf.lex_curr_p <-
       {
         lex_curr_p with
