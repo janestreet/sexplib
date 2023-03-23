@@ -290,15 +290,11 @@ let%test_unit _ =
     | _ -> false);
   parse_fail_trees [%here] "#|" (* not terminated *) (function
     | Failure s ->
-      grep "incomplete" s
-      || grep "unterminated" s
-      || grep "reached EOF while in state" s
+      grep "incomplete" s || grep "unterminated" s || grep "reached EOF while in state" s
     | _ -> false);
   parse_fail_trees [%here] "\"" (* unterminated quoted atom *) (function
     | Failure s ->
-      grep "incomplete" s
-      || grep "unterminated" s
-      || grep "reached EOF while in state" s
+      grep "incomplete" s || grep "unterminated" s || grep "reached EOF while in state" s
     | _ -> false);
   parse_fail_trees ~no_following_sibling:true [%here] "\"\\" (function
     | Failure s ->
@@ -323,16 +319,12 @@ let%test_unit _ =
     | _ -> false);
   parse_fail_trees ~no_following_sibling:true [%here] "\"\\0" (function
     | Failure s ->
-      grep "incomplete" s
-      || grep "unterminated" s
-      || grep "reached EOF while in state" s
+      grep "incomplete" s || grep "unterminated" s || grep "reached EOF while in state" s
     | Sexp.Parse_error _ -> true
     | _ -> false);
   parse_fail_trees ~no_following_sibling:true [%here] "\"\\x" (function
     | Failure s ->
-      grep "incomplete" s
-      || grep "unterminated" s
-      || grep "reached EOF while in state" s
+      grep "incomplete" s || grep "unterminated" s || grep "reached EOF while in state" s
     | Sexp.Parse_error _ -> true
     | _ -> false);
   parse_fail [%here] "\"hello" (* unterminated quoted atom *) (function

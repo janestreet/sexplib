@@ -20,7 +20,6 @@ let%test_module "forget" =
     let b3 = Sexp.List [ Sexp.Atom "yo"; Sexp.Atom "yo"; Sexp.Atom "ma" ]
     let b4 = Sexp.List [ b2; b3; b3 ]
     let b5 = Sexp.List [ b2; b3; b4 ]
-
     let%test _ = M.Forget.t_or_comment a1 = None
     let%test _ = M.Forget.t_or_comment a2 = Some b2
     let%test _ = M.Forget.t_or_comment a3 = Some b3
@@ -46,7 +45,6 @@ let%test_module "forget" =
     end
 
     let same_as_simple x = M.Forget.t_or_comment x = Simple_forget.t_or_comment x
-
     let%test _ = same_as_simple a1
     let%test _ = same_as_simple a2
     let%test _ = same_as_simple a3

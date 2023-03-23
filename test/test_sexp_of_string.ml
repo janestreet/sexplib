@@ -20,10 +20,13 @@ let%test_module "tests" =
     let%test_unit _ = good "foo; blah"
     let%test_unit _ = good "foo; blah\n"
     let%test_unit _ = good "foo; blah\n"
+
     (* multiple sexps *)
     let%test_unit _ = bad "foo bar"
+
     (* unterminated block comment *)
     let%test_unit _ = bad "foo #| bar"
+
     (* unterminated sexp *)
     let%test_unit _ = bad "foo ("
 

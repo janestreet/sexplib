@@ -300,8 +300,7 @@ let () =
             [ List [ Atom "err_msg"; Atom pe.err_msg ]
             ; List [ Atom "text_line"; Conv.sexp_of_int ppos.Parse_pos.text_line ]
             ; List [ Atom "text_char"; Conv.sexp_of_int ppos.Parse_pos.text_char ]
-            ; List
-                [ Atom "global_offset"; Conv.sexp_of_int ppos.Parse_pos.global_offset ]
+            ; List [ Atom "global_offset"; Conv.sexp_of_int ppos.Parse_pos.global_offset ]
             ; List [ Atom "buf_pos"; Conv.sexp_of_int ppos.Parse_pos.buf_pos ]
             ]
         ]
