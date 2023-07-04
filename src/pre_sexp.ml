@@ -320,6 +320,9 @@ module Parser_output : sig
 
   module Bare_sexp : T with type output = Type.t
   module Annotated_sexp : T with type output = Annot.t
+
+  val annotate_sexp : Type.t -> Parsexp.Positions.Iterator.t -> Annot.t
+  val annotate_sexp_list : Type.t list -> Parsexp.Positions.Iterator.t -> Annot.t list
 end = struct
   module type T = sig
     module Impl : Parsexp.Eager_parser
@@ -768,6 +771,11 @@ module Annotated = struct
 
   let of_string str =
     of_string_bigstring "Annotated.of_string" parse " " String.length String.sub str
+  ;;
+
+  let of_string_many str =
+    let sexps, positions = Parsexp.Many_and_positions.parse_string_exn str in
+    Parser_output.annotate_sexp_list sexps (Parsexp.Positions.Iterator.create positions)
   ;;
 
   let of_bigstring bstr =

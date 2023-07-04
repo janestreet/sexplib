@@ -1,4 +1,5 @@
 open Sexplib
+open Expect_test_helpers_core
 
 let%test_module "tests" =
   (module struct
@@ -33,7 +34,7 @@ let%test_module "tests" =
     let%expect_test "of_string_many" =
       let test str =
         let sexps = Sexp.of_string_many str in
-        List.iter (fun sexp -> print_endline (sexp |> Sexp.to_string)) sexps
+        List.iter print_s sexps
       in
       test "(foo) (bar)";
       [%expect {|
@@ -53,16 +54,13 @@ let%test_module "tests" =
       let sexp_of_list = Conv.sexp_of_list in
       let test str =
         let foos = Sexp.of_string_many_conv_exn str [%of_sexp: Foo.t list] in
-        List.iter
-          (fun (x : Foo.t list) ->
-             print_endline (Sexp.to_string ([%sexp_of: Foo.t list] x)))
-          foos
+        List.iter (fun (x : Foo.t list) -> print_s ([%sexp_of: Foo.t list] x)) foos
       in
       test "(A) (B)";
       [%expect {|
         (A)
         (B) |}];
-      Expect_test_helpers_core.show_raise (fun () -> test "(A) (B) (C)");
+      show_raise (fun () -> test "(A) (B) (C)");
       [%expect
         {|
         (raised (
@@ -70,6 +68,68 @@ let%test_module "tests" =
           "test_sexp_of_string.ml.t_of_sexp: unexpected variant constructor"
           (invalid_sexp C)
           (containing_sexp (C)))) |}]
+    ;;
+  end)
+;;
+
+let%test_module "Annotated" =
+  (module struct
+    let%expect_test "of_string" =
+      let good s =
+        assert (Sexp.Annotated.get_sexp (Sexp.Annotated.of_string s) = Atom "foo")
+      in
+      let bad s = show_raise (fun () -> Sexp.Annotated.of_string s) in
+      good "foo";
+      good "foo\n";
+      good "foo;";
+      good "foo #;()";
+      good "foo #|blah|#";
+      good "foo #|blah|#\n";
+      good "foo; blah";
+      good "foo; blah\n";
+      good "foo; blah\n";
+      (* multiple sexps *)
+      bad "foo bar";
+      [%expect
+        {|
+        (raised (
+          Failure
+          "Sexplib.Sexp.Annotated.of_string: S-expression followed by data at position 3...")) |}];
+      (* unterminated block comment *)
+      bad "foo #| bar";
+      [%expect
+        {|
+        (raised (
+          Failure
+          "Sexplib.Sexp.Annotated.of_string: S-expression followed by data at position 3...")) |}];
+      (* unterminated sexp *)
+      bad "(foo";
+      [%expect
+        {|
+        (raised (
+          Failure
+          "Sexplib.Sexp.Annotated.of_string: incomplete S-expression while in state Parsing_list: (foo")) |}]
+    ;;
+
+    let%expect_test "of_string_many" =
+      let test str =
+        let annotated_sexps = Sexp.Annotated.of_string_many str in
+        List.iter (fun x -> print_s (Sexp.Annotated.get_sexp x)) annotated_sexps
+      in
+      test "(foo) (bar)";
+      [%expect {|
+        (foo)
+        (bar) |}];
+      show_raise (fun () -> test "(foo) (bar");
+      [%expect
+        {|
+        (raised (
+          parse_error.ml.Parse_error (
+            (position (
+              (line   1)
+              (col    10)
+              (offset 10)))
+            (message "unclosed parentheses at end of input")))) |}]
     ;;
   end)
 ;;

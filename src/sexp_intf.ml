@@ -231,6 +231,13 @@ module type S = sig
         S-expression. *)
     val of_string : string -> t
 
+    (** [of_string_many] same as {!of_string_many}, but returns a list of annotated
+        S-expressions.
+
+        Similar to {!of_string_many}, on parse failure it raises [Parsexp.Parse_error]
+        rather than a native [Sexplib.Sexp.Parse_error]. *)
+    val of_string_many : string -> t list
+
     (** [of_bigstring bstr] same as {!of_string}, but operates on bigstrings. *)
     val of_bigstring : bigstring -> t
 
