@@ -14,10 +14,10 @@ let () =
     ~finalise:false
     [%extension_constructor Unix.Unix_error]
     (function
-      | Unix.Unix_error (err, loc, arg) ->
-        let err_str = Unix.error_message err in
-        List [ Atom "Unix.Unix_error"; Atom err_str; Atom loc; Atom arg ]
-      | _ -> assert false)
+    | Unix.Unix_error (err, loc, arg) ->
+      let err_str = Unix.error_message err in
+      List [ Atom "Unix.Unix_error"; Atom err_str; Atom loc; Atom arg ]
+    | _ -> assert false)
 ;;
 
 let linkme = ()

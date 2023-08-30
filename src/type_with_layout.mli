@@ -1,10 +1,10 @@
 (** S-expressions annotated with relative source positions and comments *)
 
 module Make (Pos : sig
-    type t
+  type t
 
-    val sexp_of_t : t -> Type.t
-  end) : sig
+  val sexp_of_t : t -> Type.t
+end) : sig
   module type S = sig
     (** S-expressions annotated with relative source positions and comments *)
     type t =

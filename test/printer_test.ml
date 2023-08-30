@@ -55,9 +55,9 @@ let normalize_string s =
   let l =
     List.map
       (fun s ->
-         let ends_with_cr = s <> "" && s.[String.length s - 1] = '\r' in
-         let s = rstrip s in
-         if ends_with_cr && care_about_windows_newlines then s ^ "\r" else s)
+        let ends_with_cr = s <> "" && s.[String.length s - 1] = '\r' in
+        let s = rstrip s in
+        if ends_with_cr && care_about_windows_newlines then s ^ "\r" else s)
       l
   in
   String.concat "" l
@@ -71,96 +71,96 @@ let test_printer () =
     ; "a    b "
     ; "\na  \n  b \n  "
     ; "(\na  \n) () b \n  "
-      ; (* single line comments *)
+    ; (* single line comments *)
       ";\n"
     ; ";() b \n  "
     ; "(;\n)"
     ; "(a;\nb)"
-      ; (* block comments *)
+    ; (* block comments *)
       "#||#"
     ; "#| ((a((|#"
-      ; (* block comments + random contents *)
+    ; (* block comments + random contents *)
       "a\"#|\"b"
-      ; (* quoted atom with block comment start *)
+    ; (* quoted atom with block comment start *)
       "a \"|#\" b"
-      ; (* quoted atom with block comment end *)
+    ; (* quoted atom with block comment end *)
       "a #|\"|#\" b|#"
-      ; (* block comment with quoted atom  *)
+    ; (* block comment with quoted atom  *)
       "a \n#|\"\n|#\" b|#\n"
-      ; (* block comment with quoted atom and newlines *)
+    ; (* block comment with quoted atom and newlines *)
 
       (* sexp comment *)
       "#;out in"
-      ; (* standard case *)
+    ; (* standard case *)
       "#;out#;out-as-well ;still out\n finally-in"
-      ; (* consecutive sexp comments *)
+    ; (* consecutive sexp comments *)
       "#;#;out out-as-well ;still out\n finally-in"
-      ; (* nested sexp comments *)
+    ; (* nested sexp comments *)
       "#;#;(\"out\" )out-as-well ;still out\n finally-in"
-      ; (* nested sexp comments that comment out more complicated expressions *)
+    ; (* nested sexp comments that comment out more complicated expressions *)
       "#;;line comment1\n;line comment2\nout in"
     ]
   in
   List.iter
     (fun test_str ->
-       List.iter
-         (fun wrapper ->
-            List.iter
-              (fun (newline_adapter, newline_style) ->
-                 incr total;
-                 let test_str = newline_adapter (wrapper test_str) in
-                 let lexbuf = Lexing.from_string test_str in
-                 let sexps_opt =
-                   try Some (With_layout.Parser.sexps With_layout.Lexer.main lexbuf) with
-                   | e ->
-                     incr failures;
-                     let str = Printexc.to_string e in
-                     Printf.printf
-                       "Failed to parse %S (%s):\n  %s\n%!"
-                       test_str
-                       newline_style
-                       str;
-                     None
-                 in
-                 match sexps_opt with
+      List.iter
+        (fun wrapper ->
+          List.iter
+            (fun (newline_adapter, newline_style) ->
+              incr total;
+              let test_str = newline_adapter (wrapper test_str) in
+              let lexbuf = Lexing.from_string test_str in
+              let sexps_opt =
+                try Some (With_layout.Parser.sexps With_layout.Lexer.main lexbuf) with
+                | e ->
+                  incr failures;
+                  let str = Printexc.to_string e in
+                  Printf.printf
+                    "Failed to parse %S (%s):\n  %s\n%!"
+                    test_str
+                    newline_style
+                    str;
+                  None
+              in
+              match sexps_opt with
+              | None -> ()
+              | Some sexps ->
+                let printed_str_opt =
+                  try Some (string_of_sexps_with_layout sexps) with
+                  | e ->
+                    incr failures;
+                    let str = Printexc.to_string e in
+                    Printf.printf
+                      "Failed to print %S (%s):\n  %s\n  %s\n%!"
+                      test_str
+                      newline_style
+                      (Sexp.to_string
+                         (Sexp.List (With_layout.Forget.t_or_comments sexps)))
+                      str;
+                    None
+                in
+                (match printed_str_opt with
                  | None -> ()
-                 | Some sexps ->
-                   let printed_str_opt =
-                     try Some (string_of_sexps_with_layout sexps) with
-                     | e ->
-                       incr failures;
-                       let str = Printexc.to_string e in
-                       Printf.printf
-                         "Failed to print %S (%s):\n  %s\n  %s\n%!"
-                         test_str
-                         newline_style
-                         (Sexp.to_string
-                            (Sexp.List (With_layout.Forget.t_or_comments sexps)))
-                         str;
-                       None
-                   in
-                   (match printed_str_opt with
-                    | None -> ()
-                    | Some printed_str ->
-                      (* trailing whitespace (at the end of lines or at the end of file) is not
+                 | Some printed_str ->
+                   (* trailing whitespace (at the end of lines or at the end of file) is not
                          handled by the parser/printer, except when they are in a comment but that
                          is annoying to check so stripping everything from both strings *)
-                      if normalize_string test_str <> normalize_string printed_str
-                      then (
-                        incr failures;
-                        Printf.printf
-                          "Comparison failed %S (%s):\n\
-                          \              got %S after parsing + printing\n\
-                          \  test    after normalization: %S\n\
-                          \  printed after normalization: %S\n\
-                           %!"
-                          test_str
-                          newline_style
-                          printed_str
-                          (normalize_string test_str)
-                          (normalize_string printed_str))))
-              newline_adapters)
-         (wrap_in_context ()))
+                   if normalize_string test_str <> normalize_string printed_str
+                   then (
+                     incr failures;
+                     Printf.printf
+                       "Comparison failed %S (%s):\n\
+                       \              got %S after parsing + printing\n\
+                       \  test    after normalization: %S\n\
+                       \  printed after normalization: %S\n\
+                        %!"
+                       test_str
+                       newline_style
+                       printed_str
+                       (normalize_string test_str)
+                       (normalize_string printed_str))))
+            newline_adapters)
+        (wrap_in_context ()))
     tests
 ;;
 

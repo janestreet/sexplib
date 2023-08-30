@@ -5,10 +5,10 @@ module List = struct
 end
 
 module Make (Pos : sig
-    type t
+  type t
 
-    val sexp_of_t : t -> Type.t
-  end) =
+  val sexp_of_t : t -> Type.t
+end) =
 struct
   module T = struct
     (** In [Atom (_, s, opt)], [s] is the unescaped string, that is the argument of

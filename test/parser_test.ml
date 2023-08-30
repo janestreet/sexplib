@@ -1,7 +1,6 @@
 open Sexplib
 open Test_common
 
-
 let sexp_of_layout_sexp = Sexp.With_layout.sexp_of_t_or_comment
 let sexps_of_layout_sexps l = List.map sexp_of_layout_sexp l
 
@@ -125,46 +124,46 @@ let same_parse_tree ?no_following_sibling ?(use_list_parsers = false) loc string
   let context_wrappers = wrap_in_context ?no_following_sibling () in
   List.iter
     (fun context_wrapper ->
-       let string1 = context_wrapper string1 in
-       let string2 = context_wrapper string2 in
-       List.iter
-         (fun (parser_, parser_name) ->
-            List.iter
-              (fun (adapt_newline, newline_style) ->
-                 incr tests;
-                 try
-                   let string1 = adapt_newline string1 in
-                   let string2 = adapt_newline string2 in
-                   let tree1 = parser_ string1 in
-                   let tree2 = parser_ string2 in
-                   if tree1 <> tree2
-                   then (
-                     incr failures;
-                     Printf.printf
-                       "test failure at %s (%s, %s)\n\
-                       \  string1: %S tree1: %s\n\
-                       \  string2: %S tree2: %s\n\
-                        %!"
-                       (string_of_loc loc)
-                       parser_name
-                       newline_style
-                       string1
-                       (Sexp.to_string tree1)
-                       string2
-                       (Sexp.to_string tree2))
-                 with
-                 | e ->
-                   incr failures;
-                   Printf.printf
-                     "test failure at %s (%s, %s, %s) on %S vs %S\n%!"
-                     (string_of_loc loc)
-                     (Printexc.to_string e)
-                     parser_name
-                     newline_style
-                     string1
-                     string2)
-              newline_adapters)
-         (if use_list_parsers then list_parsers else parsers))
+      let string1 = context_wrapper string1 in
+      let string2 = context_wrapper string2 in
+      List.iter
+        (fun (parser_, parser_name) ->
+          List.iter
+            (fun (adapt_newline, newline_style) ->
+              incr tests;
+              try
+                let string1 = adapt_newline string1 in
+                let string2 = adapt_newline string2 in
+                let tree1 = parser_ string1 in
+                let tree2 = parser_ string2 in
+                if tree1 <> tree2
+                then (
+                  incr failures;
+                  Printf.printf
+                    "test failure at %s (%s, %s)\n\
+                    \  string1: %S tree1: %s\n\
+                    \  string2: %S tree2: %s\n\
+                     %!"
+                    (string_of_loc loc)
+                    parser_name
+                    newline_style
+                    string1
+                    (Sexp.to_string tree1)
+                    string2
+                    (Sexp.to_string tree2))
+              with
+              | e ->
+                incr failures;
+                Printf.printf
+                  "test failure at %s (%s, %s, %s) on %S vs %S\n%!"
+                  (string_of_loc loc)
+                  (Printexc.to_string e)
+                  parser_name
+                  newline_style
+                  string1
+                  string2)
+            newline_adapters)
+        (if use_list_parsers then list_parsers else parsers))
     context_wrappers
 ;;
 
@@ -176,38 +175,38 @@ let parse_fail ?no_following_sibling ?(use_list_parsers = false) loc string f =
   let context_wrappers = wrap_in_context ?no_following_sibling () in
   List.iter
     (fun context_wrapper ->
-       let string = context_wrapper string in
-       List.iter
-         (fun (parser_, parser_name) ->
-            List.iter
-              (fun (adapt_newline, newline_style) ->
-                 incr tests;
-                 try
-                   let string = adapt_newline string in
-                   let tree = parser_ string in
-                   incr failures;
-                   Printf.printf
-                     "test failure at %s (%s, %s): should have thrown an exception\n\
-                      string: %S tree: %s\n\
-                      %!"
-                     (string_of_loc loc)
-                     parser_name
-                     newline_style
-                     string
-                     (Sexp.to_string tree)
-                 with
-                 | e ->
-                   if not (f e)
-                   then (
-                     incr failures;
-                     Printf.printf
-                       "test failure at %s (%s, %s, %s)\n%!"
-                       (string_of_loc loc)
-                       (Printexc.to_string e)
-                       parser_name
-                       newline_style))
-              newline_adapters)
-         (if use_list_parsers then list_parsers else parsers))
+      let string = context_wrapper string in
+      List.iter
+        (fun (parser_, parser_name) ->
+          List.iter
+            (fun (adapt_newline, newline_style) ->
+              incr tests;
+              try
+                let string = adapt_newline string in
+                let tree = parser_ string in
+                incr failures;
+                Printf.printf
+                  "test failure at %s (%s, %s): should have thrown an exception\n\
+                   string: %S tree: %s\n\
+                   %!"
+                  (string_of_loc loc)
+                  parser_name
+                  newline_style
+                  string
+                  (Sexp.to_string tree)
+              with
+              | e ->
+                if not (f e)
+                then (
+                  incr failures;
+                  Printf.printf
+                    "test failure at %s (%s, %s, %s)\n%!"
+                    (string_of_loc loc)
+                    (Printexc.to_string e)
+                    parser_name
+                    newline_style))
+            newline_adapters)
+        (if use_list_parsers then list_parsers else parsers))
     context_wrappers
 ;;
 
@@ -253,9 +252,9 @@ let load_large_sexp () =
     assert (List.length l = num);
     List.iteri
       (fun i sexp ->
-         match sexp with
-         | Sexp.Atom name -> assert (name = Printf.sprintf "item_%d" i)
-         | Sexp.List _ -> failwith "expected to find bare atom in the list")
+        match sexp with
+        | Sexp.Atom name -> assert (name = Printf.sprintf "item_%d" i)
+        | Sexp.List _ -> failwith "expected to find bare atom in the list")
       l
   | _ -> failwith "load_large_sexp: expected to load a list"
 ;;

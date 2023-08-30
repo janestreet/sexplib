@@ -117,11 +117,11 @@ module type S = sig
   (** Type of result from calling {!Sexp.parse}. *)
   type ('a, 't) parse_result = ('a, 't) Pre_sexp.parse_result =
     | Done of 't * Parse_pos.t
-    (** [Done (t, parse_pos)] finished parsing
+        (** [Done (t, parse_pos)] finished parsing
         an S-expression.  Current parse position
         is [parse_pos]. *)
     | Cont of Cont_state.t * ('a, 't) parse_fun
-    (** [Cont (cont_state, parse_fun)] met the end of input before completely
+        (** [Cont (cont_state, parse_fun)] met the end of input before completely
         parsing an S-expression.  The user has to call [parse_fun] to
         continue parsing the S-expression in another buffer.  [cont_state]
         is the current parsing state of the continuation.
@@ -628,7 +628,6 @@ module type S = sig
 
   (** S-expressions annotated with relative source positions and comments *)
   module With_layout : sig
-
     (* relative source positions *)
     type pos = Src_pos.Relative.t =
       { row : int
@@ -664,7 +663,6 @@ module type S = sig
       val t_or_comment : t_or_comment -> Type.t option
       val t_or_comments : t_or_comment list -> Type.t list
     end
-
 
     module Render : sig
       type asexp

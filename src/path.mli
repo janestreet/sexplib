@@ -6,14 +6,13 @@
 type el =
   | Pos of int (** [Pos n] denotes [n]th element in a tuple *)
   | Match of string * int
-  (** [Match (tag, n)] denotes [n]th argument of sum matching [tag] *)
+      (** [Match (tag, n)] denotes [n]th argument of sum matching [tag] *)
   | Rec of string (** [Rec name] denotes the record field having [name] *)
 
 (** Type of substitution paths *)
 type t = el list
 
 (** {6 High-level functions} *)
-
 
 (** [parse str] @return a substitution path represented by string [str].
 

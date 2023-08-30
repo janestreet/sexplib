@@ -33,8 +33,8 @@ let newline_adapters =
           ""
           (List.map
              (function
-               | '\n' -> "\r\n"
-               | c -> String.make 1 c)
+              | '\n' -> "\r\n"
+              | c -> String.make 1 c)
              (Base.String.to_list s)))
     , "windows" )
   ]

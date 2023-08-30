@@ -46,13 +46,13 @@ let register4 make_exc exc_name sexp_of_arg1 sexp_of_arg2 sexp_of_arg3 sexp_of_a
 ;;
 
 let register5
-      make_exc
-      exc_name
-      sexp_of_arg1
-      sexp_of_arg2
-      sexp_of_arg3
-      sexp_of_arg4
-      sexp_of_arg5
+  make_exc
+  exc_name
+  sexp_of_arg1
+  sexp_of_arg2
+  sexp_of_arg3
+  sexp_of_arg4
+  sexp_of_arg5
   =
   let exc =
     make_exc
@@ -73,14 +73,14 @@ let register5
 ;;
 
 let register6
-      make_exc
-      exc_name
-      sexp_of_arg1
-      sexp_of_arg2
-      sexp_of_arg3
-      sexp_of_arg4
-      sexp_of_arg5
-      sexp_of_arg6
+  make_exc
+  exc_name
+  sexp_of_arg1
+  sexp_of_arg2
+  sexp_of_arg3
+  sexp_of_arg4
+  sexp_of_arg5
+  sexp_of_arg6
   =
   let exc =
     make_exc
@@ -103,15 +103,15 @@ let register6
 ;;
 
 let register7
-      make_exc
-      exc_name
-      sexp_of_arg1
-      sexp_of_arg2
-      sexp_of_arg3
-      sexp_of_arg4
-      sexp_of_arg5
-      sexp_of_arg6
-      sexp_of_arg7
+  make_exc
+  exc_name
+  sexp_of_arg1
+  sexp_of_arg2
+  sexp_of_arg3
+  sexp_of_arg4
+  sexp_of_arg5
+  sexp_of_arg6
+  sexp_of_arg7
   =
   let exc =
     make_exc
@@ -136,16 +136,16 @@ let register7
 ;;
 
 let register8
-      make_exc
-      exc_name
-      sexp_of_arg1
-      sexp_of_arg2
-      sexp_of_arg3
-      sexp_of_arg4
-      sexp_of_arg5
-      sexp_of_arg6
-      sexp_of_arg7
-      sexp_of_arg8
+  make_exc
+  exc_name
+  sexp_of_arg1
+  sexp_of_arg2
+  sexp_of_arg3
+  sexp_of_arg4
+  sexp_of_arg5
+  sexp_of_arg6
+  sexp_of_arg7
+  sexp_of_arg8
   =
   let exc =
     make_exc
@@ -173,17 +173,17 @@ let register8
 ;;
 
 let register9
-      make_exc
-      exc_name
-      sexp_of_arg1
-      sexp_of_arg2
-      sexp_of_arg3
-      sexp_of_arg4
-      sexp_of_arg5
-      sexp_of_arg6
-      sexp_of_arg7
-      sexp_of_arg8
-      sexp_of_arg9
+  make_exc
+  exc_name
+  sexp_of_arg1
+  sexp_of_arg2
+  sexp_of_arg3
+  sexp_of_arg4
+  sexp_of_arg5
+  sexp_of_arg6
+  sexp_of_arg7
+  sexp_of_arg8
+  sexp_of_arg9
   =
   let exc =
     make_exc
@@ -223,18 +223,18 @@ let register9
 ;;
 
 let register10
-      make_exc
-      exc_name
-      sexp_of_arg1
-      sexp_of_arg2
-      sexp_of_arg3
-      sexp_of_arg4
-      sexp_of_arg5
-      sexp_of_arg6
-      sexp_of_arg7
-      sexp_of_arg8
-      sexp_of_arg9
-      sexp_of_arg10
+  make_exc
+  exc_name
+  sexp_of_arg1
+  sexp_of_arg2
+  sexp_of_arg3
+  sexp_of_arg4
+  sexp_of_arg5
+  sexp_of_arg6
+  sexp_of_arg7
+  sexp_of_arg8
+  sexp_of_arg9
+  sexp_of_arg10
   =
   let exc =
     make_exc

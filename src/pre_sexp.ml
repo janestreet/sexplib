@@ -14,9 +14,9 @@ type bigstring = (char, int8_unsigned_elt, c_layout) Array1.t
 include (
   Sexplib.Sexp :
     module type of struct
-    include Sexplib.Sexp
-  end
-  with type t := t)
+      include Sexplib.Sexp
+    end
+    with type t := t)
 
 include Private
 
@@ -155,8 +155,8 @@ let sexp_conversion_error_message ?containing_sexp ?location ?invalid_sexp () ~e
           | None -> []
           | Some x -> [ Atom x ])
        ; [ (match exn with
-             | Failure x -> Atom x
-             | _ -> Conv.sexp_of_exn exn)
+            | Failure x -> Atom x
+            | _ -> Conv.sexp_of_exn exn)
          ]
        ; (match invalid_sexp with
           | None -> []
@@ -377,20 +377,20 @@ end = struct
 end
 
 module Make_parser (T : sig
-    include Parser_output.T
+  include Parser_output.T
 
-    type input
+  type input
 
-    val length : input -> int
+  val length : input -> int
 
-    val unsafe_feed_loop
-      :  Impl.State.t
-      -> Impl.Stack.t
-      -> input
-      -> max_pos:int
-      -> pos:int
-      -> Impl.Stack.t
-  end) : sig
+  val unsafe_feed_loop
+    :  Impl.State.t
+    -> Impl.Stack.t
+    -> input
+    -> max_pos:int
+    -> pos:int
+    -> Impl.Stack.t
+end) : sig
   val parse
     :  ?parse_pos:Parse_pos.t
     -> ?len:int
@@ -472,75 +472,75 @@ end
 [@@inline always]
 
 module String_single_sexp = Make_parser (struct
-    include Parser_output.Bare_sexp
+  include Parser_output.Bare_sexp
 
-    type input = string
+  type input = string
 
-    let length = String.length
+  let length = String.length
 
-    let rec unsafe_feed_loop state stack str ~max_pos ~pos =
-      if pos <= max_pos
-      then (
-        let stack = Impl.feed state (String.unsafe_get str pos) stack in
-        unsafe_feed_loop state stack str ~max_pos ~pos:(pos + 1))
-      else stack
-    ;;
-  end)
+  let rec unsafe_feed_loop state stack str ~max_pos ~pos =
+    if pos <= max_pos
+    then (
+      let stack = Impl.feed state (String.unsafe_get str pos) stack in
+      unsafe_feed_loop state stack str ~max_pos ~pos:(pos + 1))
+    else stack
+  ;;
+end)
 
 let parse_str = String_single_sexp.parse
 let parse = String_single_sexp.parse
 
 module String_single_annot = Make_parser (struct
-    include Parser_output.Annotated_sexp
+  include Parser_output.Annotated_sexp
 
-    type input = string
+  type input = string
 
-    let length = String.length
+  let length = String.length
 
-    let rec unsafe_feed_loop state stack str ~max_pos ~pos =
-      if pos <= max_pos
-      then (
-        let stack = Impl.feed state (String.unsafe_get str pos) stack in
-        unsafe_feed_loop state stack str ~max_pos ~pos:(pos + 1))
-      else stack
-    ;;
-  end)
+  let rec unsafe_feed_loop state stack str ~max_pos ~pos =
+    if pos <= max_pos
+    then (
+      let stack = Impl.feed state (String.unsafe_get str pos) stack in
+      unsafe_feed_loop state stack str ~max_pos ~pos:(pos + 1))
+    else stack
+  ;;
+end)
 
 let parse_str_annot = String_single_annot.parse
 
 module Bigstring_single_sexp = Make_parser (struct
-    include Parser_output.Bare_sexp
+  include Parser_output.Bare_sexp
 
-    type input = bigstring
+  type input = bigstring
 
-    let length = Array1.dim
+  let length = Array1.dim
 
-    let rec unsafe_feed_loop state stack (str : input) ~max_pos ~pos =
-      if pos <= max_pos
-      then (
-        let stack = Impl.feed state (Array1.unsafe_get str pos) stack in
-        unsafe_feed_loop state stack str ~max_pos ~pos:(pos + 1))
-      else stack
-    ;;
-  end)
+  let rec unsafe_feed_loop state stack (str : input) ~max_pos ~pos =
+    if pos <= max_pos
+    then (
+      let stack = Impl.feed state (Array1.unsafe_get str pos) stack in
+      unsafe_feed_loop state stack str ~max_pos ~pos:(pos + 1))
+    else stack
+  ;;
+end)
 
 let parse_bigstring = Bigstring_single_sexp.parse
 
 module Bigstring_single_annot = Make_parser (struct
-    include Parser_output.Annotated_sexp
+  include Parser_output.Annotated_sexp
 
-    type input = bigstring
+  type input = bigstring
 
-    let length = Array1.dim
+  let length = Array1.dim
 
-    let rec unsafe_feed_loop state stack (str : input) ~max_pos ~pos =
-      if pos <= max_pos
-      then (
-        let stack = Impl.feed state (Array1.unsafe_get str pos) stack in
-        unsafe_feed_loop state stack str ~max_pos ~pos:(pos + 1))
-      else stack
-    ;;
-  end)
+  let rec unsafe_feed_loop state stack (str : input) ~max_pos ~pos =
+    if pos <= max_pos
+    then (
+      let stack = Impl.feed state (Array1.unsafe_get str pos) stack in
+      unsafe_feed_loop state stack str ~max_pos ~pos:(pos + 1))
+    else stack
+  ;;
+end)
 
 let parse_bigstring_annot = Bigstring_single_annot.parse
 
