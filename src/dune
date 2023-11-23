@@ -1,5 +1,5 @@
-(library (name sexplib) (libraries bigarray parsexp sexplib0)
- (public_name sexplib) (preprocess no_preprocessing))
+(library (name sexplib) (libraries parsexp sexplib0) (public_name sexplib)
+ (preprocess no_preprocessing))
 
 (ocamllex lexer)
 
