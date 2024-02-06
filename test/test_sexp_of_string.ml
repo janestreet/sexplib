@@ -21,6 +21,15 @@ let%test_module "tests" =
     let%test_unit _ = good "foo; blah"
     let%test_unit _ = good "foo; blah\n"
     let%test_unit _ = good "foo; blah\n"
+    let%test_unit _ = good "foo #; blah "
+    let%test_unit _ = good "foo #; blah\n"
+    let%test_unit _ = good "foo #; ()"
+
+    (* regression test, these strings used to fail to parse *)
+    let%test_unit _ = good "foo #; blah"
+    let%test_unit _ = good "foo #; blah #; blah"
+    let%test_unit _ = good "foo #; #; blah blah"
+    let%test_unit _ = good "foo #; blah#"
 
     (* multiple sexps *)
     let%test_unit _ = bad "foo bar"
@@ -94,7 +103,7 @@ let%test_module "Annotated" =
         {|
         (raised (
           Failure
-          "Sexplib.Sexp.Annotated.of_string: S-expression followed by data at position 3...")) |}];
+          "Sexplib.Sexp.Annotated.of_string: got multiple S-expressions where only one was expected.")) |}];
       (* unterminated block comment *)
       bad "foo #| bar";
       [%expect

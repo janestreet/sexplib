@@ -636,15 +636,20 @@ let of_string_bigstring loc my_parse ws_buf get_len get_sub str =
          (sprintf
             "Sexplib.Sexp.%s: got multiple S-expressions where only one was expected."
             loc)
-     | Cont (Cont_state.Parsing_toplevel_whitespace, _) -> sexp
-     | Cont (_, _) ->
-       (* not using [feed_end_of_input] here means "a b" will end up here and not in
-          "multiple S-expressions" branch, but it doesn't matter that much *)
-       failwith
-         (sprintf
-            "Sexplib.Sexp.%s: S-expression followed by data at position %d..."
-            loc
-            parse_pos.buf_pos))
+     | Cont (_, this_parse) ->
+       (match feed_end_of_input ~this_parse ~ws_buf with
+        | Ok _ ->
+          failwith
+            (sprintf
+               "Sexplib.Sexp.%s: got multiple S-expressions where only one was expected."
+               loc)
+        | Error Cont_state.Parsing_toplevel_whitespace -> sexp
+        | Error _ ->
+          failwith
+            (sprintf
+               "Sexplib.Sexp.%s: S-expression followed by data at position %d..."
+               loc
+               parse_pos.buf_pos)))
   | Cont (_, this_parse) ->
     (match feed_end_of_input ~this_parse ~ws_buf with
      | Ok sexp -> sexp
