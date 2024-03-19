@@ -55,14 +55,16 @@ let%expect_test _ =
     mach:
     line1
     hum:
-    line1 |}];
+    line1
+    |}];
   (* one trailing newline *)
   display (Atom "line1\n");
   [%expect {|
     mach:
     "line1\n"
     hum:
-    "line1\n" |}];
+    "line1\n"
+    |}];
   (* two lines *)
   display (Sexp.Atom "line1\nline2");
   [%expect {|
@@ -70,7 +72,8 @@ let%expect_test _ =
     "line1\nline2"
     hum:
      "line1\
-    \nline2" |}];
+    \nline2"
+    |}];
   (* two lines and trailing newline *)
   display (Sexp.Atom "line1\nline2\n");
   [%expect
@@ -80,7 +83,8 @@ let%expect_test _ =
     hum:
      "line1\
     \nline2\
-    \n" |}];
+    \n"
+    |}];
   (* two lines, windows style *)
   display (Sexp.Atom "line1\r\nline2");
   [%expect {|
@@ -88,7 +92,8 @@ let%expect_test _ =
     "line1\r\nline2"
     hum:
      "line1\r\
-    \nline2" |}];
+    \nline2"
+    |}];
   (* two lines and trailing windows style *)
   display (Sexp.Atom "line1\r\nline2\r\n");
   [%expect
@@ -98,7 +103,8 @@ let%expect_test _ =
     hum:
      "line1\r\
     \nline2\r\
-    \n" |}];
+    \n"
+    |}];
   (* two lines inside of parens *)
   display (Sexp.of_string "(\"line1\nline2\")");
   [%expect {|
@@ -106,7 +112,8 @@ let%expect_test _ =
     ("line1\nline2")
     hum:
     ( "line1\
-     \nline2") |}];
+     \nline2")
+    |}];
   (* many lines and indentation in the atom *)
   display (Sexp.Atom "line1\n line2\n  line3\n   line4\n");
   [%expect
@@ -118,7 +125,8 @@ let%expect_test _ =
     \n line2\
     \n  line3\
     \n   line4\
-    \n" |}];
+    \n"
+    |}];
   (* indentation with tabs in the atom *)
   display (Sexp.Atom "line1\n\tline2\n\t\tline3\n\t\t\tline4\n");
   [%expect
@@ -130,7 +138,8 @@ let%expect_test _ =
     \n\tline2\
     \n\t\tline3\
     \n\t\t\tline4\
-    \n" |}];
+    \n"
+    |}];
   (* trailing whitespace *)
   display (Sexp.List [ Sexp.List [ Sexp.Atom "line1  \n  line3  \n  " ] ]);
   [%expect
@@ -140,7 +149,8 @@ let%expect_test _ =
     hum:
     (( "line1  \
       \n  line3  \
-      \n  ")) |}];
+      \n  "))
+    |}];
   (* catalog snapshot *)
   display
     (Sexp.Atom
@@ -169,5 +179,6 @@ let%expect_test _ =
     \n|          |    |  |  |    |  |  |  |\
     \ntest_sym1  10.        10.           9.\
     \ntest_sym3                             \
-    \n" |}]
+    \n"
+    |}]
 ;;

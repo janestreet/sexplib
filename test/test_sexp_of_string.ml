@@ -48,7 +48,8 @@ let%test_module "tests" =
       test "(foo) (bar)";
       [%expect {|
         (foo)
-        (bar) |}]
+        (bar)
+        |}]
     ;;
 
     let%expect_test "of_string_many_conv_exn" =
@@ -68,7 +69,8 @@ let%test_module "tests" =
       test "(A) (B)";
       [%expect {|
         (A)
-        (B) |}];
+        (B)
+        |}];
       show_raise (fun () -> test "(A) (B) (C)");
       [%expect
         {|
@@ -76,7 +78,8 @@ let%test_module "tests" =
           Of_sexp_error
           "test_sexp_of_string.ml.t_of_sexp: unexpected variant constructor"
           (invalid_sexp C)
-          (containing_sexp (C)))) |}]
+          (containing_sexp (C))))
+        |}]
     ;;
   end)
 ;;
@@ -103,21 +106,24 @@ let%test_module "Annotated" =
         {|
         (raised (
           Failure
-          "Sexplib.Sexp.Annotated.of_string: got multiple S-expressions where only one was expected.")) |}];
+          "Sexplib.Sexp.Annotated.of_string: got multiple S-expressions where only one was expected."))
+        |}];
       (* unterminated block comment *)
       bad "foo #| bar";
       [%expect
         {|
         (raised (
           Failure
-          "Sexplib.Sexp.Annotated.of_string: S-expression followed by data at position 3...")) |}];
+          "Sexplib.Sexp.Annotated.of_string: S-expression followed by data at position 3..."))
+        |}];
       (* unterminated sexp *)
       bad "(foo";
       [%expect
         {|
         (raised (
           Failure
-          "Sexplib.Sexp.Annotated.of_string: incomplete S-expression while in state Parsing_list: (foo")) |}]
+          "Sexplib.Sexp.Annotated.of_string: incomplete S-expression while in state Parsing_list: (foo"))
+        |}]
     ;;
 
     let%expect_test "of_string_many" =
@@ -128,7 +134,8 @@ let%test_module "Annotated" =
       test "(foo) (bar)";
       [%expect {|
         (foo)
-        (bar) |}];
+        (bar)
+        |}];
       show_raise (fun () -> test "(foo) (bar");
       [%expect
         {|
@@ -138,7 +145,8 @@ let%test_module "Annotated" =
               (line   1)
               (col    10)
               (offset 10)))
-            (message "unclosed parentheses at end of input")))) |}]
+            (message "unclosed parentheses at end of input"))))
+        |}]
     ;;
   end)
 ;;

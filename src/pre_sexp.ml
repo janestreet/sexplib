@@ -459,7 +459,9 @@ end = struct
       ( { Parsexp.Positions.line = text_line; col = text_char; offset = global_offset }
       , buf_pos )
     in
-    let state = T.Impl.State.create ~pos ~no_sexp_is_error:false T.raise_found in
+    let state =
+      T.Impl.State.create ~pos ~reraise_notrace:true ~no_sexp_is_error:false T.raise_found
+    in
     let stack = T.Impl.Stack.empty in
     let len =
       match len with

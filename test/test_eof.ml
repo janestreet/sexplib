@@ -18,9 +18,7 @@ let with_temp_file sexp_of_t ~contents ~f =
 let%expect_test "file ending with an atom" =
   with_temp_file [%sexp_of: int] ~contents:"5" ~f:(fun fname ->
     Sexplib.Sexp.load_sexp_conv_exn fname [%of_sexp: int]);
-  [%expect {|
-     (Ok 5)
-  |}]
+  [%expect {| (Ok 5) |}]
 ;;
 
 let%expect_test "file ending with an atom" =
@@ -33,7 +31,5 @@ let%expect_test "file ending with an atom" =
     | exception e ->
       close_in ic;
       raise e);
-  [%expect {|
-     (Ok (5))
-  |}]
+  [%expect {| (Ok (5)) |}]
 ;;
