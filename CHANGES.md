@@ -1,3 +1,8 @@
+## Release v0.17.0
+
+* Added `Sexp.Annotated.of_string_many`, mirroring `Sexp.of_string_many`, for parsing a list of annotated S-expressions.
+
+
 ## v0.11
 
 - Switched `Sexplib`'s sexp parser to use the `Parsexp` library.
