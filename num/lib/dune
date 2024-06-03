@@ -2,4 +2,5 @@
  (name sexplib_num)
  (public_name sexplib.num)
  (libraries num sexplib)
- (preprocess no_preprocessing))
+ (preprocess no_preprocessing)
+ (optional))
