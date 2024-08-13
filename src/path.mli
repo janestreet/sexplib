@@ -6,7 +6,7 @@
 type el =
   | Pos of int (** [Pos n] denotes [n]th element in a tuple *)
   | Match of string * int
-      (** [Match (tag, n)] denotes [n]th argument of sum matching [tag] *)
+  (** [Match (tag, n)] denotes [n]th argument of sum matching [tag] *)
   | Rec of string (** [Rec name] denotes the record field having [name] *)
 
 (** Type of substitution paths *)
@@ -28,12 +28,17 @@ type t = el list
     tries to match [some_tag], then denotes its 4th argument.
 
     "name" ->
-    denotes record field having [name]
+    denotes record field having [name].
+
+    If an element contains the literal characters dots '.', brackets '[]', or backslashes
+    '\', escape them with a backslash.
 
     Example from test code:
 
     ".t.x.B[1]" -> choose record field with name [t], then subfield
     [x].  Match this value against [B], and denote its first argument.
+
+    ".github\\.com" -> choose the record field with name [github.com].
 
     @raise Failure if the path is syntactically invalid.
 *)

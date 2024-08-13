@@ -20,10 +20,9 @@ let test ?cr (type t) (module M : S with type t = t) =
     let round_tripped = [%of_sexp: M.Sexpable.t] [%sexp (original : M.Sexpable.t)] in
     match Poly.([%compare.equal: t]) original round_tripped with
     | true -> ()
-    | false ->
-      print_cr ?cr [%here] [%message "Unequal." (original : M.t) (round_tripped : M.t)]
+    | false -> print_cr ?cr [%message "Unequal." (original : M.t) (round_tripped : M.t)]
   in
-  require_does_not_raise ?cr [%here] (fun () -> Test.run_exn (module M) ~f:test)
+  require_does_not_raise ?cr (fun () -> Test.run_exn (module M) ~f:test)
 ;;
 
 let%expect_test "bigstring" =

@@ -46,7 +46,8 @@ let%test_module "tests" =
         List.iter print_s sexps
       in
       test "(foo) (bar)";
-      [%expect {|
+      [%expect
+        {|
         (foo)
         (bar)
         |}]
@@ -67,7 +68,8 @@ let%test_module "tests" =
         List.iter (fun (x : Foo.t list) -> print_s ([%sexp_of: Foo.t list] x)) foos
       in
       test "(A) (B)";
-      [%expect {|
+      [%expect
+        {|
         (A)
         (B)
         |}];
@@ -76,7 +78,7 @@ let%test_module "tests" =
         {|
         (raised (
           Of_sexp_error
-          "test_sexp_of_string.ml.t_of_sexp: unexpected variant constructor"
+          "test_sexp_of_string.ml.t_of_sexp: unexpected variant constructor; expected one of A B"
           (invalid_sexp C)
           (containing_sexp (C))))
         |}]
@@ -132,7 +134,8 @@ let%test_module "Annotated" =
         List.iter (fun x -> print_s (Sexp.Annotated.get_sexp x)) annotated_sexps
       in
       test "(foo) (bar)";
-      [%expect {|
+      [%expect
+        {|
         (foo)
         (bar)
         |}];

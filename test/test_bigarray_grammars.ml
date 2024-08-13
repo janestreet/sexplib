@@ -3,7 +3,7 @@ open! Expect_test_helpers_core
 open Sexplib
 open Sexp_grammar_validation
 
-let test m = validate_grammar m |> require_ok [%here]
+let test m = validate_grammar m |> require_ok
 
 module Test = struct
   include Sexplib0.Sexp_conv

@@ -142,7 +142,7 @@ let parse str =
                 let ix1 = ix + 1 in
                 if ix1 = len
                 then fail_parse "EOF after escape"
-                else parse_dot acc (str.[ix1] :: str_acc) (ix + 1)
+                else parse_dot acc (str.[ix1] :: str_acc) (ix1 + 1)
               | '.' ->
                 if str_acc = [] then fail_parse "double '.'";
                 let path_el = Rec (implode (List.rev str_acc)) in

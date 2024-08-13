@@ -117,11 +117,11 @@ module type S = sig
   (** Type of result from calling {!Sexp.parse}. *)
   type ('a, 't) parse_result = ('a, 't) Pre_sexp.parse_result =
     | Done of 't * Parse_pos.t
-        (** [Done (t, parse_pos)] finished parsing
+    (** [Done (t, parse_pos)] finished parsing
         an S-expression.  Current parse position
         is [parse_pos]. *)
     | Cont of Cont_state.t * ('a, 't) parse_fun
-        (** [Cont (cont_state, parse_fun)] met the end of input before completely
+    (** [Cont (cont_state, parse_fun)] met the end of input before completely
         parsing an S-expression.  The user has to call [parse_fun] to
         continue parsing the S-expression in another buffer.  [cont_state]
         is the current parsing state of the continuation.
@@ -267,7 +267,7 @@ module type S = sig
     { err_msg : string (** Reason why parsing failed *)
     ; parse_state :
         [ `Sexp of t list list parse_state | `Annot of Annotated.stack parse_state ]
-        (** State of parser *)
+    (** State of parser *)
     }
 
   (** Exception raised during partial parsing *)
@@ -665,15 +665,15 @@ module type S = sig
     end
 
     module Render : sig
-      type asexp
-      type 'a t (* monad for position-respecting asexp rendering *)
+        type asexp
+        type 'a t (* monad for position-respecting asexp rendering *)
 
-      val return : 'a -> 'a t
-      val bind : 'a t -> f:('a -> 'b t) -> 'b t
-      val sexp : asexp -> unit t (* assumes that positions in [asexp] are relative *)
-      val run : (char -> unit) -> unit t -> unit
-    end
-    with type asexp := t_or_comment
+        val return : 'a -> 'a t
+        val bind : 'a t -> f:('a -> 'b t) -> 'b t
+        val sexp : asexp -> unit t (* assumes that positions in [asexp] are relative *)
+        val run : (char -> unit) -> unit t -> unit
+      end
+      with type asexp := t_or_comment
 
     module Parser : sig
       type token

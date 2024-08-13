@@ -51,7 +51,8 @@ let display sexp =
 let%expect_test _ =
   (* simple atom *)
   display (Atom "line1");
-  [%expect {|
+  [%expect
+    {|
     mach:
     line1
     hum:
@@ -59,7 +60,8 @@ let%expect_test _ =
     |}];
   (* one trailing newline *)
   display (Atom "line1\n");
-  [%expect {|
+  [%expect
+    {|
     mach:
     "line1\n"
     hum:
@@ -67,7 +69,8 @@ let%expect_test _ =
     |}];
   (* two lines *)
   display (Sexp.Atom "line1\nline2");
-  [%expect {|
+  [%expect
+    {|
     mach:
     "line1\nline2"
     hum:
@@ -87,7 +90,8 @@ let%expect_test _ =
     |}];
   (* two lines, windows style *)
   display (Sexp.Atom "line1\r\nline2");
-  [%expect {|
+  [%expect
+    {|
     mach:
     "line1\r\nline2"
     hum:
@@ -107,7 +111,8 @@ let%expect_test _ =
     |}];
   (* two lines inside of parens *)
   display (Sexp.of_string "(\"line1\nline2\")");
-  [%expect {|
+  [%expect
+    {|
     mach:
     ("line1\nline2")
     hum:

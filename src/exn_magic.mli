@@ -1,12 +1,12 @@
 (** This file is only kept for compatibility with pa_sexp_conv. *)
 val register : exn -> string -> unit
-  [@@deprecated "[2016-07] use Conv.Exn_converter.add"]
+[@@deprecated "[2016-07] use Conv.Exn_converter.add"]
 
 val register1 : ('a -> exn) -> string -> ('a -> Sexp.t) -> unit
-  [@@deprecated "[2016-07] use Conv.Exn_converter.add"]
+[@@deprecated "[2016-07] use Conv.Exn_converter.add"]
 
 val register2 : ('a -> 'b -> exn) -> string -> ('a -> Sexp.t) -> ('b -> Sexp.t) -> unit
-  [@@deprecated "[2016-07] use Conv.Exn_converter.add"]
+[@@deprecated "[2016-07] use Conv.Exn_converter.add"]
 
 val register3
   :  ('a -> 'b -> 'c -> exn)
@@ -15,7 +15,7 @@ val register3
   -> ('b -> Sexp.t)
   -> ('c -> Sexp.t)
   -> unit
-  [@@deprecated "[2016-07] use Conv.Exn_converter.add"]
+[@@deprecated "[2016-07] use Conv.Exn_converter.add"]
 
 val register4
   :  ('a -> 'b -> 'c -> 'd -> exn)
@@ -25,7 +25,7 @@ val register4
   -> ('c -> Sexp.t)
   -> ('d -> Sexp.t)
   -> unit
-  [@@deprecated "[2016-07] use Conv.Exn_converter.add"]
+[@@deprecated "[2016-07] use Conv.Exn_converter.add"]
 
 val register5
   :  ('a -> 'b -> 'c -> 'd -> 'e -> exn)
@@ -36,7 +36,7 @@ val register5
   -> ('d -> Sexp.t)
   -> ('e -> Sexp.t)
   -> unit
-  [@@deprecated "[2016-07] use Conv.Exn_converter.add"]
+[@@deprecated "[2016-07] use Conv.Exn_converter.add"]
 
 val register6
   :  ('a -> 'b -> 'c -> 'd -> 'e -> 'f -> exn)
@@ -48,7 +48,7 @@ val register6
   -> ('e -> Sexp.t)
   -> ('f -> Sexp.t)
   -> unit
-  [@@deprecated "[2016-07] use Conv.Exn_converter.add"]
+[@@deprecated "[2016-07] use Conv.Exn_converter.add"]
 
 val register7
   :  ('a -> 'b -> 'c -> 'd -> 'e -> 'f -> 'g -> exn)
@@ -61,7 +61,7 @@ val register7
   -> ('f -> Sexp.t)
   -> ('g -> Sexp.t)
   -> unit
-  [@@deprecated "[2016-07] use Conv.Exn_converter.add"]
+[@@deprecated "[2016-07] use Conv.Exn_converter.add"]
 
 val register8
   :  ('a -> 'b -> 'c -> 'd -> 'e -> 'f -> 'g -> 'h -> exn)
@@ -75,7 +75,7 @@ val register8
   -> ('g -> Sexp.t)
   -> ('h -> Sexp.t)
   -> unit
-  [@@deprecated "[2016-07] use Conv.Exn_converter.add"]
+[@@deprecated "[2016-07] use Conv.Exn_converter.add"]
 
 val register9
   :  ('a -> 'b -> 'c -> 'd -> 'e -> 'f -> 'g -> 'h -> 'i -> exn)
@@ -90,7 +90,7 @@ val register9
   -> ('h -> Sexp.t)
   -> ('i -> Sexp.t)
   -> unit
-  [@@deprecated "[2016-07] use Conv.Exn_converter.add"]
+[@@deprecated "[2016-07] use Conv.Exn_converter.add"]
 
 val register10
   :  ('a -> 'b -> 'c -> 'd -> 'e -> 'f -> 'g -> 'h -> 'i -> 'j -> exn)
@@ -106,4 +106,4 @@ val register10
   -> ('i -> Sexp.t)
   -> ('j -> Sexp.t)
   -> unit
-  [@@deprecated "[2016-07] use Conv.Exn_converter.add"]
+[@@deprecated "[2016-07] use Conv.Exn_converter.add"]
