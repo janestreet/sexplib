@@ -91,18 +91,19 @@ let vec_sexp_grammar : _ Sexplib0.Sexp_grammar.t = { untyped = List (Many Float)
 let float32_vec_sexp_grammar = vec_sexp_grammar
 let float64_vec_sexp_grammar = vec_sexp_grammar
 
-let check_too_much_data sexp data res =
-  if data = [] then res else of_sexp_error "float_mat_of_sexp: too much data" sexp
-;;
-
 let float_mat_of_sexp create_float_mat sexp =
   match sexp with
   | List (sm :: sn :: data) ->
     let m = int_of_sexp sm in
     let n = int_of_sexp sn in
+    if m < 0 || n < 0 then of_sexp_error "float_mat_of_sexp: negative dimension(s)" sexp;
+    let expect_size = m * n in
+    let actual_size = List.length data in
+    if expect_size <> actual_size
+    then of_sexp_error "float_mat_of_sexp: dimensions do not match amount of data" sexp;
     let res = create_float_mat m n in
     if m = 0 || n = 0
-    then check_too_much_data sexp data res
+    then res
     else (
       let rec loop_cols col data =
         let vec = Array2.slice_right res col in
@@ -111,7 +112,7 @@ let float_mat_of_sexp create_float_mat sexp =
           | h :: t ->
             vec.{row} <- float_of_sexp h;
             if row = m
-            then if col = n then check_too_much_data sexp t res else loop_cols (col + 1) t
+            then if col = n then res else loop_cols (col + 1) t
             else loop_rows (row + 1) t
         in
         loop_rows 1 data
