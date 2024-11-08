@@ -1,6 +1,6 @@
 (library
  (name sexplib_test)
- (libraries base base_quickcheck core_kernel.composition_infix
+ (libraries base base_quickcheck base.composition_infix
    expect_test_helpers_core sexp_grammar_validation sexplib stdio)
  (preprocess
   (pps ppx_jane)))
