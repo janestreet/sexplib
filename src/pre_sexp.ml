@@ -4,6 +4,7 @@ open Format
 open Bigarray
 module Sexplib = Sexplib0
 module Conv = Sexplib.Sexp_conv
+module Domain = Basement.Stdlib_shim.Domain
 
 (* conv.ml depends on us so we can only use this module *)
 
@@ -47,18 +48,14 @@ let output = output_mach
    is taken in account.  Under Unix there's no easy way to get the umask in
    a thread-safe way. *)
 module Tmp_file = struct
-  let prng = ref None
+  let prng = Domain.Safe.DLS.new_key (fun () -> Random.State.make_self_init ())
 
   let temp_file_name prefix suffix =
-    let rand_state =
-      match !prng with
-      | Some v -> v
-      | None ->
-        let ret = Random.State.make_self_init () in
-        prng := Some ret;
-        ret
+    let rnd =
+      Domain.Safe.DLS.access (fun access ->
+        let rand_state = Domain.Safe.DLS.get access prng in
+        Random.State.bits rand_state land 0xFFFFFF)
     in
-    let rnd = Random.State.bits rand_state land 0xFFFFFF in
     Printf.sprintf "%s%06x%s" prefix rnd suffix
   ;;
 
@@ -307,16 +304,18 @@ let () =
     | _ -> assert false)
 ;;
 
-module Parser_output : sig
-  module type T = sig
-    module Impl : Parsexp.Eager_parser
+module type T = sig
+  module Impl : Parsexp.Eager_parser
 
-    type output
+  type output
 
-    exception Found of output
+  exception Found of output
 
-    val raise_found : Impl.State.Read_only.t -> Impl.parsed_value -> unit
-  end
+  val raise_found : Impl.State.Read_only.t -> Impl.parsed_value -> unit
+end
+
+module Parser_output : sig @@ portable
+  module type T = T
 
   module Bare_sexp : T with type output = Type.t
   module Annotated_sexp : T with type output = Annot.t
@@ -324,15 +323,7 @@ module Parser_output : sig
   val annotate_sexp : Type.t -> Parsexp.Positions.Iterator.t -> Annot.t
   val annotate_sexp_list : Type.t list -> Parsexp.Positions.Iterator.t -> Annot.t list
 end = struct
-  module type T = sig
-    module Impl : Parsexp.Eager_parser
-
-    type output
-
-    exception Found of output
-
-    val raise_found : Impl.State.Read_only.t -> Impl.parsed_value -> unit
-  end
+  module type T = T
 
   module I = Parsexp.Positions.Iterator
 
@@ -377,6 +368,7 @@ end = struct
 end
 
 module Make_parser (T : sig
+  @@ portable
     include Parser_output.T
 
     type input
@@ -391,6 +383,7 @@ module Make_parser (T : sig
       -> pos:int
       -> Impl.Stack.t
   end) : sig
+  @@ portable
   val parse
     :  ?parse_pos:Parse_pos.t
     -> ?len:int
@@ -914,8 +907,8 @@ let is_unit = function
   | _ -> false
 ;;
 
-external sexp_of_t : t -> t = "%identity"
-external t_of_sexp : t -> t = "%identity"
+external sexp_of_t : t -> t @@ portable = "%identity"
+external t_of_sexp : t -> t @@ portable = "%identity"
 
 (* Utilities for conversion error handling *)
 

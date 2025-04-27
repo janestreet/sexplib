@@ -2,8 +2,8 @@
 
     Write [let () = Sexplib_unix.Sexplib_unix_conv.linkme] in your program to ensure that
     the code in this module is run, i.e. the unix-specific exception converters are added.
-    This is already done by [Core], so any application that uses Core need not worry
-    about this module at all. *)
+    This is already done by [Core], so any application that uses Core need not worry about
+    this module at all. *)
 open Sexplib.Sexp
 
 open Sexplib.Conv

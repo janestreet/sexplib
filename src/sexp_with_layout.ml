@@ -157,7 +157,7 @@ module Forget = struct
   (* In cps to prevent non-tail recursion.
      The polymorphism in the signature ensures that each function returns
      only through the continuation. *)
-  module Cps : sig
+  module Cps : sig @@ portable
     val forget_t : t -> (Type.t -> 'r) -> 'r
     val forget_toc : t_or_comment -> (Type.t option -> 'r) -> 'r
     val forget_tocs : t_or_comment list -> (Type.t list -> 'r) -> 'r

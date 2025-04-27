@@ -1,3 +1,5 @@
+@@ portable
+
 (** source positions, both relative and absolute *)
 
 module Relative : sig
