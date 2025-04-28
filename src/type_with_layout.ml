@@ -18,11 +18,11 @@ struct
         quoted), but it can be useful to do the reverse: set it for atoms that can be
         parsed unquoted but would be printed with quotes, to preserve the lack of quotes.
         For instance:
-        Atom (_, "a", None) should be printed {|a|}
-        Atom (_, "a b", None) should be printed {|"a b"|}
-        Atom (_, "a", Some "\"a\"") should be printed {|"a"|}
-        Atom (_, "a b", Some "a b") should be printed {|a b|} or may raise, as it is
-        an error to constructed such an atom (doesn't parse back) *)
+        - [Atom (_, "a", None)] should be printed [{|a|}]
+        - [Atom (_, "a b", None)] should be printed [{|"a b"|}]
+        - [Atom (_, "a", Some "\"a\"")] should be printed [{|"a"|}]
+        - [Atom (_, "a b", Some "a b")] should be printed [{|a b|}] or may raise, as it is
+          an error to constructed such an atom (doesn't parse back) *)
     type t =
       | Atom of Pos.t * string * string option
       | List of Pos.t * t_or_comment list * Pos.t

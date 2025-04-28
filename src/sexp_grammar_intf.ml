@@ -11,11 +11,11 @@ module type Sexp_grammar = sig
     include Sexplib0.Sexp_grammar
   end
 
-  (** Idiomatic usage looks like this: {[
-
+  (** Idiomatic usage looks like this:
+      {[
         let t_of_sexp, t_sexp_grammar =
           remember_to_update_these_together ~t_of_sexp ~t_sexp_grammar
-
+        ;;
       ]} *)
   val remember_to_update_these_together
     :  t_of_sexp:(Sexp.t -> 'a)

@@ -1,6 +1,6 @@
 (library
  (name sexplib)
- (libraries parsexp sexplib0)
+ (libraries basement parsexp sexplib0)
  (public_name sexplib)
  (preprocess no_preprocessing))
 
