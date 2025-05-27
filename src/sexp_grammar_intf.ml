@@ -21,4 +21,9 @@ module type Sexp_grammar = sig
     :  t_of_sexp:(Sexp.t -> 'a)
     -> t_sexp_grammar:'a t
     -> (Sexp.t -> 'a) * 'a t
+
+  val remember_to_update_these_together__portable
+    :  t_of_sexp:(Sexp.t -> 'a)
+    -> t_sexp_grammar:'a t
+    -> (Sexp.t -> 'a) * 'a t
 end
