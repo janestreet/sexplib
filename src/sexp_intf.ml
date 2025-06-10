@@ -142,7 +142,7 @@ module type S = sig @@ portable
   and ('a, 't) parse_fun = pos:int -> len:int -> 'a -> ('a, 't) parse_result
 
   (** Module for parsing S-expressions annotated with location information *)
-  module (Annotated @ nonportable) : sig
+  module (Annotated @@ nonportable) : sig
     (** Position information for annotated S-expressions *)
     type pos = Pre_sexp.Annotated.pos =
       { line : int
@@ -647,7 +647,7 @@ module type S = sig @@ portable
   val subst_found : t -> subst:t -> found -> t
 
   (** S-expressions annotated with relative source positions and comments *)
-  module (With_layout @ nonportable) : sig
+  module (With_layout @@ nonportable) : sig
     (* relative source positions *)
     type pos = Src_pos.Relative.t =
       { row : int
