@@ -905,7 +905,8 @@ let is_unit = function
   | _ -> false
 ;;
 
-external sexp_of_t : t -> t = "%identity"
+external sexp_of_t : (t[@local_opt]) -> (t[@local_opt]) = "%identity"
+external sexp_of_t__stack : t -> t = "%identity"
 external t_of_sexp : t -> t = "%identity"
 
 (* Utilities for conversion error handling *)

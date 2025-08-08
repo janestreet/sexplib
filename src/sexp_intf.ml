@@ -1,8 +1,10 @@
 (** Sexp_intf: interface specification for handling S-expressions (I/O, etc.) *)
 
 open Basement
-open Format
 open Bigarray
+
+module type Pretty_printing_helpers = Sexplib0.Sexp.Pretty_printing_helpers
+module type Pretty_printing = Sexplib0.Sexp.Pretty_printing
 
 module type S = sig
   (** Type of S-expressions *)
@@ -448,23 +450,6 @@ module type S = sig
   (** [save_sexps ?perm file sexp] same as {!save_sexps_mach}. *)
   val save_sexps : ?perm:int -> string -> t list -> unit
 
-  (** {6 Output of S-expressions to formatters} *)
-
-  (** [pp_hum ppf sexp] outputs S-expression [sexp] to formatter [ppf] in human readable
-      form. *)
-  val pp_hum : formatter -> t -> unit
-
-  (** [pp_hum_indent n ppf sexp] outputs S-expression [sexp] to formatter [ppf] in human
-      readable form and indentation level [n]. *)
-  val pp_hum_indent : int -> formatter -> t -> unit
-
-  (** [pp_mach ppf sexp] outputs S-expression [sexp] to formatter [ppf] in machine
-      readable (i.e. most compact) form. *)
-  val pp_mach : formatter -> t -> unit
-
-  (** [pp ppf sexp] same as [pp_mach]. *)
-  val pp : formatter -> t -> unit
-
   (** {6 String and bigstring conversions} *)
 
   (** Module encapsulating the exception raised by string converters when type conversions
@@ -522,43 +507,17 @@ module type S = sig
       @return converted value. *)
   val of_bigstring_conv_exn : bigstring -> (t -> 'a) -> 'a
 
-  (** [to_string_hum ?indent sexp] converts S-expression [sexp] to a string in human
-      readable form with indentation level [indent].
+  (** {6 Pretty printing} *)
 
-      @param indent default = [!default_indent] *)
-  val to_string_hum : ?indent:int -> t -> string
+  module Make_pretty_printing (Helpers : Pretty_printing_helpers) :
+    Pretty_printing with type output := string
 
-  (** [to_string_mach sexp] converts S-expression [sexp] to a string in machine readable
-      (i.e. most compact) form. *)
-  val to_string_mach : t -> string
+  include Pretty_printing with type output := string (** @inline *)
 
-  (** [to_string sexp] same as [to_string_mach]. *)
-  val to_string : t -> string
+  (** See [Pretty_printing.to_string_mach] and [to_string], respectively. *)
 
-  (** {6 Buffer conversions} *)
-
-  (** [to_buffer_hum ~buf ?indent sexp] outputs the S-expression [sexp] converted to a
-      string in human readable form to buffer [buf].
-
-      @param indent default = [!default_indent] *)
-  val to_buffer_hum : buf:Buffer.t -> ?indent:int -> t -> unit
-
-  (** [to_buffer_mach ~buf sexp] outputs the S-expression [sexp] converted to a string in
-      machine readable (i.e. most compact) form to buffer [buf]. *)
-  val to_buffer_mach : buf:Buffer.t -> t -> unit
-
-  (** [to_buffer ~buf sexp] same as {!to_buffer_mach}. *)
-  val to_buffer : buf:Buffer.t -> t -> unit
-
-  (** [to_buffer_gen ~buf ~add_char ~add_string sexp] outputs the S-expression [sexp]
-      converted to a string to buffer [buf] using the output functions [add_char] and
-      [add_string]. *)
-  val to_buffer_gen
-    :  buf:'buffer
-    -> add_char:('buffer -> char -> unit)
-    -> add_string:('buffer -> string -> unit)
-    -> t
-    -> unit
+  val to_string_mach__stack : t -> string
+  val to_string__stack : t -> string
 
   (** {6 Utilities for automated type conversions} *)
 
@@ -570,6 +529,8 @@ module type S = sig
   (** [sexp_of_t sexp] maps S-expressions which are part of a type with automated
       S-expression conversion to themselves. *)
   val sexp_of_t : t -> t
+
+  val sexp_of_t__stack : t -> t
 
   (** [t_of_sexp sexp] maps S-expressions which are part of a type with automated
       S-expression conversion to themselves. *)
