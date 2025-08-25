@@ -32,6 +32,7 @@ let () =
   assert (Sexp.compare exp1 exp2 = 0)
 #+end_src
 
+Another example is in the [[file:examples][examples]] directory.
 
 ** About
 
