@@ -76,10 +76,10 @@ module type S = sig
   module Parse_pos : sig
     (** Position information after complete parse *)
     type t = Pre_sexp.Parse_pos.t = private
-      { mutable text_line : int (** Line position in parsed text *)
-      ; mutable text_char : int (** Character position in parsed text *)
-      ; mutable global_offset : int (** Global/logical offset *)
-      ; mutable buf_pos : int (** Read position in string buffer *)
+      { text_line : int (** Line position in parsed text *)
+      ; text_char : int (** Character position in parsed text *)
+      ; global_offset : int (** Global/logical offset *)
+      ; buf_pos : int Atomic.t (** Read position in string buffer *)
       }
 
     (** [create ?text_line ?text_char ?buf_pos ?global_offset ()]

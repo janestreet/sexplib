@@ -4,6 +4,12 @@ open Format
 open Bigarray
 module Sexplib = Sexplib0
 module Conv = Sexplib.Sexp_conv
+
+module Atomic = struct
+  include Atomic
+  include Basement.Stdlib_shim.Atomic
+end
+
 module Domain = Basement.Stdlib_shim.Domain
 
 (* conv.ml depends on us so we can only use this module *)
@@ -245,10 +251,10 @@ let () =
 
 module Parse_pos = struct
   type t =
-    { mutable text_line : int
-    ; mutable text_char : int
-    ; mutable global_offset : int
-    ; mutable buf_pos : int
+    { text_line : int
+    ; text_char : int
+    ; global_offset : int
+    ; buf_pos : int Atomic.t
     }
 
   let create ?(text_line = 1) ?(text_char = 0) ?(buf_pos = 0) ?(global_offset = 0) () =
@@ -261,10 +267,10 @@ module Parse_pos = struct
     then fail "global_offset < 0"
     else if buf_pos < 0
     then fail "buf_pos < 0"
-    else { text_line; text_char; global_offset; buf_pos }
+    else { text_line; text_char; global_offset; buf_pos = Atomic.make buf_pos }
   ;;
 
-  let with_buf_pos t buf_pos = { t with buf_pos }
+  let with_buf_pos t buf_pos = { t with buf_pos = Atomic.make buf_pos }
 end
 
 module Cont_state = Parsexp.Old_parser_cont_state
@@ -298,7 +304,10 @@ let () =
             ; List [ Atom "text_line"; Conv.sexp_of_int ppos.Parse_pos.text_line ]
             ; List [ Atom "text_char"; Conv.sexp_of_int ppos.Parse_pos.text_char ]
             ; List [ Atom "global_offset"; Conv.sexp_of_int ppos.Parse_pos.global_offset ]
-            ; List [ Atom "buf_pos"; Conv.sexp_of_int ppos.Parse_pos.buf_pos ]
+            ; List
+                [ Atom "buf_pos"
+                ; Conv.sexp_of_int (Atomic.Contended.get ppos.Parse_pos.buf_pos)
+                ]
             ]
         ]
     | _ -> assert false)
@@ -392,7 +401,7 @@ end = struct
     { Parse_pos.text_line = T.Impl.State.line state
     ; Parse_pos.text_char = T.Impl.State.column state
     ; Parse_pos.global_offset = T.Impl.State.offset state
-    ; Parse_pos.buf_pos
+    ; Parse_pos.buf_pos = Atomic.make buf_pos
     }
   ;;
 
@@ -448,7 +457,7 @@ end = struct
     let pos, buf_pos =
       let { Parse_pos.text_line; text_char; global_offset; buf_pos } = parse_pos in
       ( { Parsexp.Positions.line = text_line; col = text_char; offset = global_offset }
-      , buf_pos )
+      , Atomic.get buf_pos )
     in
     let state =
       T.Impl.State.create ~pos ~reraise_notrace:true ~no_sexp_is_error:false T.raise_found
@@ -546,7 +555,7 @@ let mk_this_parse ?parse_pos my_parse =
       match parse_pos with
       | None -> Parse_pos.create ~buf_pos:pos ()
       | Some parse_pos ->
-        parse_pos.Parse_pos.buf_pos <- pos;
+        Atomic.set parse_pos.Parse_pos.buf_pos pos;
         parse_pos
     in
     my_parse ?parse_pos:(Some parse_pos) ?len:(Some len) str
@@ -589,6 +598,7 @@ let gen_input_rev_sexps my_parse ~ws_buf ?parse_pos ?(buf = Bytes.create 8192) i
     then (
       match this_parse ~pos ~len (Bytes.unsafe_to_string buf) with
       | Done (sexp, ({ Parse_pos.buf_pos; _ } as parse_pos)) ->
+        let buf_pos = Atomic.get buf_pos in
         rev_sexps_ref := sexp :: !rev_sexps_ref;
         let n_parsed = buf_pos - pos in
         let this_parse = mk_this_parse ~parse_pos my_parse in
@@ -642,7 +652,7 @@ let of_string_bigstring loc my_parse ws_buf get_len get_sub str =
             (sprintf
                "Sexplib.Sexp.%s: S-expression followed by data at position %d..."
                loc
-               parse_pos.buf_pos)))
+               (Atomic.get parse_pos.buf_pos))))
   | Cont (_, this_parse) ->
     (match feed_end_of_input ~this_parse ~ws_buf with
      | Ok sexp -> sexp
@@ -717,6 +727,7 @@ let gen_load_sexp my_parse ?(strict = true) ?(buf = Bytes.create 8192) file =
     else (
       match this_parse ~pos:0 ~len (Bytes.unsafe_to_string buf) with
       | Done (sexp, ({ Parse_pos.buf_pos; _ } as parse_pos)) when strict ->
+        let buf_pos = Atomic.get buf_pos in
         let rec strict_loop this_parse ~pos ~len =
           match this_parse ~pos ~len (Bytes.unsafe_to_string buf) with
           | Done _ ->
