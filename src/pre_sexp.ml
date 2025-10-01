@@ -54,13 +54,17 @@ let output = output_mach
    is taken in account.  Under Unix there's no easy way to get the umask in
    a thread-safe way. *)
 module Tmp_file = struct
+  (* [Obj.magic_uncontended] doesn't exist upstream. *)
+  external magic_uncontended : 'a -> 'a = "%identity"
+
   let prng = Domain.Safe.DLS.new_key (fun () -> Random.State.make_self_init ())
 
   let temp_file_name prefix suffix =
     let rnd =
-      Domain.Safe.DLS.access (fun access ->
-        let rand_state = Domain.Safe.DLS.get access prng in
-        Random.State.bits rand_state land 0xFFFFFF)
+      let rand_state = Domain.Safe.DLS.get prng in
+      (* This is thread safe because [Random.State.bits] only updates the state via a
+         non-preemptable C call, we do not yield, and we do not borrow the state. *)
+      Random.State.bits (magic_uncontended rand_state) land 0xFFFFFF
     in
     Printf.sprintf "%s%06x%s" prefix rnd suffix
   ;;
