@@ -4,6 +4,12 @@ open Format
 open Bigarray
 module Sexplib = Sexplib0
 module Conv = Sexplib.Sexp_conv
+
+module Atomic = struct
+  include Atomic
+  include Basement.Stdlib_shim.Atomic
+end
+
 module Domain = Basement.Stdlib_shim.Domain
 
 (* conv.ml depends on us so we can only use this module *)
@@ -48,13 +54,17 @@ let output = output_mach
    is taken in account.  Under Unix there's no easy way to get the umask in
    a thread-safe way. *)
 module Tmp_file = struct
+  (* [Obj.magic_uncontended] doesn't exist upstream. *)
+  external magic_uncontended : 'a @ contended -> 'a @@ portable = "%identity"
+
   let prng = Domain.Safe.DLS.new_key (fun () -> Random.State.make_self_init ())
 
   let temp_file_name prefix suffix =
     let rnd =
-      Domain.Safe.DLS.access (fun access ->
-        let rand_state = Domain.Safe.DLS.get access prng in
-        Random.State.bits rand_state land 0xFFFFFF)
+      let rand_state = Domain.Safe.DLS.get prng in
+      (* This is thread safe because [Random.State.bits] only updates the state via a
+         non-preemptable C call, we do not yield, and we do not borrow the state. *)
+      Random.State.bits (magic_uncontended rand_state) land 0xFFFFFF
     in
     Printf.sprintf "%s%06x%s" prefix rnd suffix
   ;;
@@ -178,7 +188,7 @@ module Annot = struct
     ; end_pos : pos
     }
 
-  type t =
+  type t : immutable_data =
     | Atom of range * Type.t
     | List of range * t list * Type.t
 
@@ -245,10 +255,10 @@ let () =
 
 module Parse_pos = struct
   type t =
-    { mutable text_line : int
-    ; mutable text_char : int
-    ; mutable global_offset : int
-    ; mutable buf_pos : int
+    { text_line : int
+    ; text_char : int
+    ; global_offset : int
+    ; buf_pos : int Atomic.t
     }
 
   let create ?(text_line = 1) ?(text_char = 0) ?(buf_pos = 0) ?(global_offset = 0) () =
@@ -261,10 +271,10 @@ module Parse_pos = struct
     then fail "global_offset < 0"
     else if buf_pos < 0
     then fail "buf_pos < 0"
-    else { text_line; text_char; global_offset; buf_pos }
+    else { text_line; text_char; global_offset; buf_pos = Atomic.make buf_pos }
   ;;
 
-  let with_buf_pos t buf_pos = { t with buf_pos }
+  let with_buf_pos t buf_pos = { t with buf_pos = Atomic.make buf_pos }
 end
 
 module Cont_state = Parsexp.Old_parser_cont_state
@@ -280,6 +290,7 @@ type 't parse_state = { parse_pos : Parse_pos.t }
 type parse_error =
   { err_msg : string
   ; parse_state : [ `Sexp of t list list parse_state | `Annot of Annot.stack parse_state ]
+    @@ contended portable
   }
 
 exception Parse_error of parse_error
@@ -298,7 +309,10 @@ let () =
             ; List [ Atom "text_line"; Conv.sexp_of_int ppos.Parse_pos.text_line ]
             ; List [ Atom "text_char"; Conv.sexp_of_int ppos.Parse_pos.text_char ]
             ; List [ Atom "global_offset"; Conv.sexp_of_int ppos.Parse_pos.global_offset ]
-            ; List [ Atom "buf_pos"; Conv.sexp_of_int ppos.Parse_pos.buf_pos ]
+            ; List
+                [ Atom "buf_pos"
+                ; Conv.sexp_of_int (Atomic.Contended.get ppos.Parse_pos.buf_pos)
+                ]
             ]
         ]
     | _ -> assert false)
@@ -307,7 +321,7 @@ let () =
 module type T = sig
   module Impl : Parsexp.Eager_parser
 
-  type output
+  type output : value mod contended portable
 
   exception Found of output
 
@@ -394,7 +408,7 @@ end = struct
     { Parse_pos.text_line = T.Impl.State.line state
     ; Parse_pos.text_char = T.Impl.State.column state
     ; Parse_pos.global_offset = T.Impl.State.offset state
-    ; Parse_pos.buf_pos
+    ; Parse_pos.buf_pos = Atomic.make buf_pos
     }
   ;;
 
@@ -407,20 +421,20 @@ end = struct
     pos_len - 1
   ;;
 
-  let raise_parse_error state pos msg =
+  let (raise_parse_error @ portable) state pos msg =
     let parse_state = { parse_pos = parse_pos_of_state state pos } in
     let parse_error = { err_msg = msg; parse_state = `Sexp parse_state } in
     raise (Parse_error parse_error)
   ;;
 
-  let handle_parsexp_error state pos e =
+  let (handle_parsexp_error @ portable) state pos e =
     let msg = Parsexp.Parse_error.message e in
     match Parsexp.Parse_error.Private.old_parser_exn e with
     | `Parse_error -> raise_parse_error state pos msg
     | `Failure -> failwith msg
   ;;
 
-  let rec run_feed_loop state stack ~pos ~len str =
+  let rec (run_feed_loop @ portable) state stack ~pos ~len str =
     let max_pos = check_str_bounds ~pos ~len str in
     let previous_offset = T.Impl.State.offset state in
     match T.unsafe_feed_loop state stack str ~max_pos ~pos with
@@ -446,11 +460,11 @@ end = struct
     Cont (cont_state, parse_fun)
   ;;
 
-  let parse ?(parse_pos = Parse_pos.create ()) ?len str =
+  let (parse @ portable) ?(parse_pos = Parse_pos.create ()) ?len str =
     let pos, buf_pos =
       let { Parse_pos.text_line; text_char; global_offset; buf_pos } = parse_pos in
       ( { Parsexp.Positions.line = text_line; col = text_char; offset = global_offset }
-      , buf_pos )
+      , Atomic.get buf_pos )
     in
     let state =
       T.Impl.State.create ~pos ~reraise_notrace:true ~no_sexp_is_error:false T.raise_found
@@ -548,7 +562,7 @@ let mk_this_parse ?parse_pos my_parse =
       match parse_pos with
       | None -> Parse_pos.create ~buf_pos:pos ()
       | Some parse_pos ->
-        parse_pos.Parse_pos.buf_pos <- pos;
+        Atomic.set parse_pos.Parse_pos.buf_pos pos;
         parse_pos
     in
     my_parse ?parse_pos:(Some parse_pos) ?len:(Some len) str
@@ -591,6 +605,7 @@ let gen_input_rev_sexps my_parse ~ws_buf ?parse_pos ?(buf = Bytes.create 8192) i
     then (
       match this_parse ~pos ~len (Bytes.unsafe_to_string buf) with
       | Done (sexp, ({ Parse_pos.buf_pos; _ } as parse_pos)) ->
+        let buf_pos = Atomic.get buf_pos in
         rev_sexps_ref := sexp :: !rev_sexps_ref;
         let n_parsed = buf_pos - pos in
         let this_parse = mk_this_parse ~parse_pos my_parse in
@@ -644,7 +659,7 @@ let of_string_bigstring loc my_parse ws_buf get_len get_sub str =
             (sprintf
                "Sexplib.Sexp.%s: S-expression followed by data at position %d..."
                loc
-               parse_pos.buf_pos)))
+               (Atomic.get parse_pos.buf_pos))))
   | Cont (_, this_parse) ->
     (match feed_end_of_input ~this_parse ~ws_buf with
      | Ok sexp -> sexp
@@ -719,6 +734,7 @@ let gen_load_sexp my_parse ?(strict = true) ?(buf = Bytes.create 8192) file =
     else (
       match this_parse ~pos:0 ~len (Bytes.unsafe_to_string buf) with
       | Done (sexp, ({ Parse_pos.buf_pos; _ } as parse_pos)) when strict ->
+        let buf_pos = Atomic.get buf_pos in
         let rec strict_loop this_parse ~pos ~len =
           match this_parse ~pos ~len (Bytes.unsafe_to_string buf) with
           | Done _ ->
@@ -907,7 +923,8 @@ let is_unit = function
   | _ -> false
 ;;
 
-external sexp_of_t : t -> t @@ portable = "%identity"
+external sexp_of_t : (t[@local_opt]) -> (t[@local_opt]) @@ portable = "%identity"
+external sexp_of_t__stack : t @ local -> t @ local @@ portable = "%identity"
 external t_of_sexp : t -> t @@ portable = "%identity"
 
 (* Utilities for conversion error handling *)

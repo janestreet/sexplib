@@ -1,8 +1,10 @@
 (** Sexp_intf: interface specification for handling S-expressions (I/O, etc.) *)
 
 open Basement
-open Format
 open Bigarray
+
+module type Pretty_printing_helpers = Sexplib0.Sexp.Pretty_printing_helpers
+module type Pretty_printing = Sexplib0.Sexp.Pretty_printing
 
 module type S = sig @@ portable
   (** Type of S-expressions *)
@@ -85,10 +87,10 @@ module type S = sig @@ portable
   module Parse_pos : sig
     (** Position information after complete parse *)
     type t = Pre_sexp.Parse_pos.t = private
-      { mutable text_line : int (** Line position in parsed text *)
-      ; mutable text_char : int (** Character position in parsed text *)
-      ; mutable global_offset : int (** Global/logical offset *)
-      ; mutable buf_pos : int (** Read position in string buffer *)
+      { text_line : int (** Line position in parsed text *)
+      ; text_char : int (** Character position in parsed text *)
+      ; global_offset : int (** Global/logical offset *)
+      ; buf_pos : int Atomic.t (** Read position in string buffer *)
       }
 
     (** [create ?text_line ?text_char ?buf_pos ?global_offset ()]
@@ -142,7 +144,7 @@ module type S = sig @@ portable
   and ('a, 't) parse_fun = pos:int -> len:int -> 'a -> ('a, 't) parse_result
 
   (** Module for parsing S-expressions annotated with location information *)
-  module (Annotated @ nonportable) : sig
+  module (Annotated @@ nonportable) : sig
     (** Position information for annotated S-expressions *)
     type pos = Pre_sexp.Annotated.pos =
       { line : int
@@ -279,6 +281,7 @@ module type S = sig @@ portable
     { err_msg : string (** Reason why parsing failed *)
     ; parse_state :
         [ `Sexp of t list list parse_state | `Annot of Annotated.stack parse_state ]
+      @@ contended portable
     (** State of parser *)
     }
 
@@ -300,12 +303,7 @@ module type S = sig @@ portable
 
       @param parse_pos default = [Parse_pos.create ()]
       @param len default = [String.length str - parse_pos.Parse_pos.buf_pos] *)
-  val parse
-    :  ?parse_pos:Parse_pos.t
-    -> ?len:int
-    -> string
-    -> (string, t) parse_result
-    @@ nonportable
+  val parse : ?parse_pos:Parse_pos.t -> ?len:int -> string -> (string, t) parse_result
 
   (** [parse_bigstring ?parse_pos ?len str] same as {!parse}, but operates on bigstrings. *)
   val parse_bigstring
@@ -313,7 +311,6 @@ module type S = sig @@ portable
     -> ?len:int
     -> bigstring
     -> (bigstring, t) parse_result
-    @@ nonportable
 
   (** [input_sexp ?parse_pos ic] parses an S-expression from input channel [ic] using
       initial position information in [parse_pos]. NOTE: this function is not as fast on
@@ -323,27 +320,17 @@ module type S = sig @@ portable
       following it.
 
       @param parse_pos default = [Parse_pos.create ()] *)
-  val input_sexp : ?parse_pos:Parse_pos.t -> in_channel -> t @@ nonportable
+  val input_sexp : ?parse_pos:Parse_pos.t -> in_channel -> t
 
   (** [input_sexps ?parse_pos ?buf ic] parses S-expressions from input channel [ic] until
       EOF is reached. Faster than the scan-functions.
 
       @param parse_pos default = [Parse_pos.create ()] *)
-  val input_sexps
-    :  ?parse_pos:Parse_pos.t
-    -> ?buf:bytes
-    -> in_channel
-    -> t list
-    @@ nonportable
+  val input_sexps : ?parse_pos:Parse_pos.t -> ?buf:bytes -> in_channel -> t list
 
   (** [input_rev_sexps ?parse_pos ?buf ic] same as {!Sexp.input_sexps}, but returns a
       reversed list of S-expressions, which is slightly more efficient. *)
-  val input_rev_sexps
-    :  ?parse_pos:Parse_pos.t
-    -> ?buf:bytes
-    -> in_channel
-    -> t list
-    @@ nonportable
+  val input_rev_sexps : ?parse_pos:Parse_pos.t -> ?buf:bytes -> in_channel -> t list
 
   (** {6 Loading of (converted) S-expressions} *)
 
@@ -359,7 +346,7 @@ module type S = sig @@ portable
         if [strict] is true and there is more than one S-expression in the file.
 
       @param strict default = [true] *)
-  val load_sexp : ?strict:bool -> ?buf:bytes -> string -> t @@ nonportable
+  val load_sexp : ?strict:bool -> ?buf:bytes -> string -> t
 
   (** [load_sexps ?buf file] reads a list of S-expressions from [file] using buffer [buf]
       for storing intermediate data. Faster than the scan-functions.
@@ -369,11 +356,11 @@ module type S = sig @@ portable
       @raise Failure
         if parsing reached the end of file before the last S-expression could be fully
         read. *)
-  val load_sexps : ?buf:bytes -> string -> t list @@ nonportable
+  val load_sexps : ?buf:bytes -> string -> t list
 
   (** [load_rev_sexps ?buf file] same as {!Sexp.load_sexps}, but returns a reversed list
       of S-expressions, which is slightly more efficient. *)
-  val load_rev_sexps : ?buf:bytes -> string -> t list @@ nonportable
+  val load_rev_sexps : ?buf:bytes -> string -> t list
 
   (** [load_sexp_conv ?strict ?buf file f] like {!Sexp.load_sexp}, but performs a
       conversion on the fly using [f]. Performance is equivalent to executing
@@ -392,18 +379,11 @@ module type S = sig @@ portable
     -> string
     -> (t -> 'a)
     -> 'a Annotated.conv
-    @@ nonportable
 
   (** [load_sexp_conv_exn ?strict ?buf file f] like {!load_sexp_conv}, but returns the
       converted value or raises [Of_sexp_error] with exact location information in the
       case of a conversion error. *)
-  val load_sexp_conv_exn
-    :  ?strict:bool
-    -> ?buf:bytes
-    -> string
-    -> (t -> 'a)
-    -> 'a
-    @@ nonportable
+  val load_sexp_conv_exn : ?strict:bool -> ?buf:bytes -> string -> (t -> 'a) -> 'a
 
   (** [load_sexps_conv ?buf file f] like {!Sexp.load_sexps}, but performs a conversion on
       the fly using [f]. Performance is equivalent to executing {!Sexp.load_sexps} and
@@ -416,17 +396,12 @@ module type S = sig @@ portable
       @raise Failure
         if parsing reached the end of file before the last S-expression could be fully
         read. *)
-  val load_sexps_conv
-    :  ?buf:bytes
-    -> string
-    -> (t -> 'a)
-    -> 'a Annotated.conv list
-    @@ nonportable
+  val load_sexps_conv : ?buf:bytes -> string -> (t -> 'a) -> 'a Annotated.conv list
 
   (** [load_sexps_conv_exn ?buf file f] like {!load_sexps_conv}, but returns the converted
       value or raises [Of_sexp_error] with exact location information in the case of a
       conversion error. *)
-  val load_sexps_conv_exn : ?buf:bytes -> string -> (t -> 'a) -> 'a list @@ nonportable
+  val load_sexps_conv_exn : ?buf:bytes -> string -> (t -> 'a) -> 'a list
 
   (** {6 Output of S-expressions to I/O-channels} *)
 
@@ -487,23 +462,6 @@ module type S = sig @@ portable
   (** [save_sexps ?perm file sexp] same as {!save_sexps_mach}. *)
   val save_sexps : ?perm:int -> string -> t list -> unit
 
-  (** {6 Output of S-expressions to formatters} *)
-
-  (** [pp_hum ppf sexp] outputs S-expression [sexp] to formatter [ppf] in human readable
-      form. *)
-  val pp_hum : formatter -> t -> unit
-
-  (** [pp_hum_indent n ppf sexp] outputs S-expression [sexp] to formatter [ppf] in human
-      readable form and indentation level [n]. *)
-  val pp_hum_indent : int -> formatter -> t -> unit
-
-  (** [pp_mach ppf sexp] outputs S-expression [sexp] to formatter [ppf] in machine
-      readable (i.e. most compact) form. *)
-  val pp_mach : formatter -> t -> unit
-
-  (** [pp ppf sexp] same as [pp_mach]. *)
-  val pp : formatter -> t -> unit
-
   (** {6 String and bigstring conversions} *)
 
   (** Module encapsulating the exception raised by string converters when type conversions
@@ -525,7 +483,7 @@ module type S = sig @@ portable
 
       Unlike many other functions in this module, on parse failure it raises
       [Parsexp.Parse_error] rather than a native [Sexplib.Sexp.Parse_error]. *)
-  val of_string_many : string -> t list @@ nonportable
+  val of_string_many : string -> t list
 
   (** [of_string_conv str conv] like {!of_string}, but performs type conversion with
       [conv].
@@ -541,12 +499,12 @@ module type S = sig @@ portable
       It still raises [Sexplib.Sexp.Of_string_conv_exn] on sexp conversion errors.
 
       @return conversion result. *)
-  val of_string_many_conv_exn : string -> (t -> 'a) -> 'a list @@ nonportable
+  val of_string_many_conv_exn : string -> (t -> 'a) -> 'a list
 
   (** [of_string_conv_exn str conv] like {!of_string_conv}, but raises
       {!Of_string_conv_exn.E} if type conversion fails.
       @return converted value. *)
-  val of_string_conv_exn : string -> (t -> 'a) -> 'a @@ nonportable
+  val of_string_conv_exn : string -> (t -> 'a) -> 'a
 
   (** [of_bigstring bstr] same as {!of_string}, but operates on bigstrings. *)
   val of_bigstring : bigstring -> t @@ nonportable
@@ -561,43 +519,17 @@ module type S = sig @@ portable
       @return converted value. *)
   val of_bigstring_conv_exn : bigstring -> (t -> 'a) -> 'a @@ nonportable
 
-  (** [to_string_hum ?indent sexp] converts S-expression [sexp] to a string in human
-      readable form with indentation level [indent].
+  (** {6 Pretty printing} *)
 
-      @param indent default = [!default_indent] *)
-  val to_string_hum : ?indent:int -> t -> string
+  module Make_pretty_printing (Helpers : Pretty_printing_helpers) :
+    Pretty_printing with type output := string
 
-  (** [to_string_mach sexp] converts S-expression [sexp] to a string in machine readable
-      (i.e. most compact) form. *)
-  val to_string_mach : t -> string
+  include Pretty_printing with type output := string (** @inline *)
 
-  (** [to_string sexp] same as [to_string_mach]. *)
-  val to_string : t -> string
+  (** See [Pretty_printing.to_string_mach] and [to_string], respectively. *)
 
-  (** {6 Buffer conversions} *)
-
-  (** [to_buffer_hum ~buf ?indent sexp] outputs the S-expression [sexp] converted to a
-      string in human readable form to buffer [buf].
-
-      @param indent default = [!default_indent] *)
-  val to_buffer_hum : buf:Buffer.t -> ?indent:int -> t -> unit
-
-  (** [to_buffer_mach ~buf sexp] outputs the S-expression [sexp] converted to a string in
-      machine readable (i.e. most compact) form to buffer [buf]. *)
-  val to_buffer_mach : buf:Buffer.t -> t -> unit
-
-  (** [to_buffer ~buf sexp] same as {!to_buffer_mach}. *)
-  val to_buffer : buf:Buffer.t -> t -> unit
-
-  (** [to_buffer_gen ~buf ~add_char ~add_string sexp] outputs the S-expression [sexp]
-      converted to a string to buffer [buf] using the output functions [add_char] and
-      [add_string]. *)
-  val to_buffer_gen
-    :  buf:'buffer
-    -> add_char:('buffer -> char -> unit)
-    -> add_string:('buffer -> string -> unit)
-    -> t
-    -> unit
+  val to_string_mach__stack : t @ local -> string @ local
+  val to_string__stack : t @ local -> string @ local
 
   (** {6 Utilities for automated type conversions} *)
 
@@ -609,6 +541,8 @@ module type S = sig @@ portable
   (** [sexp_of_t sexp] maps S-expressions which are part of a type with automated
       S-expression conversion to themselves. *)
   val sexp_of_t : t -> t
+
+  val sexp_of_t__stack : t @ local -> t @ local
 
   (** [t_of_sexp sexp] maps S-expressions which are part of a type with automated
       S-expression conversion to themselves. *)
@@ -647,7 +581,7 @@ module type S = sig @@ portable
   val subst_found : t -> subst:t -> found -> t
 
   (** S-expressions annotated with relative source positions and comments *)
-  module (With_layout @ nonportable) : sig
+  module (With_layout @@ nonportable) : sig
     (* relative source positions *)
     type pos = Src_pos.Relative.t =
       { row : int
