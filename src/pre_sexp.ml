@@ -311,7 +311,7 @@ let () =
             ; List [ Atom "global_offset"; Conv.sexp_of_int ppos.Parse_pos.global_offset ]
             ; List
                 [ Atom "buf_pos"
-                ; Conv.sexp_of_int (Atomic.Contended.get ppos.Parse_pos.buf_pos)
+                ; Conv.sexp_of_int (Atomic.get_contended ppos.Parse_pos.buf_pos)
                 ]
             ]
         ]
