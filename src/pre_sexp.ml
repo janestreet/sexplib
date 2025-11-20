@@ -48,11 +48,10 @@ let output = output_mach
 
 (* Output of S-expressions to file *)
 
-(* The temp file functions in the OCaml Filename module do not support
-   permissions.  But opening a file with given permissions is different
-   from opening it and chmoding it to these permissions, because the umask
-   is taken in account.  Under Unix there's no easy way to get the umask in
-   a thread-safe way. *)
+(* The temp file functions in the OCaml Filename module do not support permissions. But
+   opening a file with given permissions is different from opening it and chmoding it to
+   these permissions, because the umask is taken in account. Under Unix there's no easy
+   way to get the umask in a thread-safe way. *)
 module Tmp_file = struct
   (* [Obj.magic_uncontended] doesn't exist upstream. *)
   external magic_uncontended : 'a @ contended -> 'a @@ portable = "%identity"
@@ -69,7 +68,7 @@ module Tmp_file = struct
     Printf.sprintf "%s%06x%s" prefix rnd suffix
   ;;
 
-  (* Keep the permissions loose. Sexps are usually shared and rarely private*)
+  (* Keep the permissions loose. Sexps are usually shared and rarely private *)
   let open_temp_file ?(perm = 0o666) prefix suffix =
     let rec try_name counter =
       let name = temp_file_name prefix suffix in
@@ -570,9 +569,9 @@ let mk_this_parse ?parse_pos my_parse =
 
 (* [ws_buf] must contain a single space character *)
 let feed_end_of_input ~this_parse ~ws_buf =
-  (* When parsing atoms, the incremental parser cannot tell whether
-     it is at the end until it hits whitespace.  We therefore feed it
-     one space to determine whether it is finished. *)
+  (* When parsing atoms, the incremental parser cannot tell whether it is at the end until
+     it hits whitespace. We therefore feed it one space to determine whether it is
+     finished. *)
   match this_parse ~pos:0 ~len:1 ws_buf with
   | Done (sexp, _) -> Ok sexp
   | Cont (cont_state, _) -> Error cont_state

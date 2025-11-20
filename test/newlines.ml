@@ -13,13 +13,12 @@ let windowsify_newlines str =
 
 let display sexp =
   (* My understanding of newlines on windows is that in memory, a newline is a \n, but
-     when writing to a file with a file handler open in text mode, all the \n are
-     replaced with \r\n. Of course the conversion is undone when reading with a file
-     handler open in text mode. If saving \n in text-mode and reading it in binary mode,
-     we would receive \r\n back.
-     I am testing that serializing + writing in text mode + reading in binary mode +
-     deserializing is the identity (because it was before this newline printing stuff),
-     and all the other cases should just work. *)
+     when writing to a file with a file handler open in text mode, all the \n are replaced
+     with \r\n. Of course the conversion is undone when reading with a file handler open
+     in text mode. If saving \n in text-mode and reading it in binary mode, we would
+     receive \r\n back. I am testing that serializing + writing in text mode + reading in
+     binary mode + deserializing is the identity (because it was before this newline
+     printing stuff), and all the other cases should just work. *)
   let reparsed = Sexp.of_string (Sexp.to_string_hum sexp) in
   let reparsed_after_windows_fiddling =
     Sexp.of_string (windowsify_newlines (Sexp.to_string_hum sexp))

@@ -15,8 +15,8 @@ let sexp_of_layout_sexps_or_something sexps_with_layout =
 let parsers =
   [ Sexp.of_string, "cont"
   ; ( (fun s ->
-        (* feeding the characters to the parse function one by one to make sure the cont_state
-           machinery is working fine *)
+        (* feeding the characters to the parse function one by one to make sure the
+           cont_state machinery is working fine *)
         let pos = 0 in
         match Sexp.parse ~len:1 s with
         | Sexp.Done (t, _) -> t
@@ -232,11 +232,10 @@ let round_trip_all_characters () =
   done
 ;;
 
-(* the Sexp.input_sexps function tested below has a loop that uses
-   the continuation mechanism of the parser if the whole thing cannot be
-   loaded at once. (The parser named "cont-incremental" in the variable
-   "parsers" above does exercise the continuation mechanism but its logic
-   is coded in the present file, not in the library functions.)
+(* the Sexp.input_sexps function tested below has a loop that uses the continuation
+   mechanism of the parser if the whole thing cannot be loaded at once. (The parser named
+   "cont-incremental" in the variable "parsers" above does exercise the continuation
+   mechanism but its logic is coded in the present file, not in the library functions.)
 *)
 let load_large_sexp () =
   (* note: the file is expected to be larger than the default size of buffers *)
@@ -381,7 +380,7 @@ let%test_unit _ =
   same_parse_trees [%here] "#;b " " ";
   (* leading comments in front of nothing *)
 
-  (* making sure that '|' is still accepted in literals *)
+  (*=making sure that '|' is still accepted in literals *)
   same_parse_tree [%here] "(a|b)" "(\"a|b\")";
   same_parse_tree [%here] "(a | b)" "(a \"|\" b)";
   same_parse_tree [%here] "((a)|b)" "((a)\"|b\")";

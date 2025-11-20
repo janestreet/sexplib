@@ -36,8 +36,8 @@ module Render = struct
     ; mutable last_comment_row : int
     }
 
-  (* the point of [immed_after_last_atom] is to prevent
-     (A B C) from rendering as (A BBC) after we replace B with BB *)
+  (* the point of [immed_after_last_atom] is to prevent (A B C) from rendering as (A BBC)
+     after we replace B with BB *)
 
   type 'a t = (char -> unit) -> state -> 'a
 
@@ -154,9 +154,8 @@ module Render = struct
 end
 
 module Forget = struct
-  (* In cps to prevent non-tail recursion.
-     The polymorphism in the signature ensures that each function returns
-     only through the continuation. *)
+  (* In cps to prevent non-tail recursion. The polymorphism in the signature ensures that
+     each function returns only through the continuation. *)
   module Cps : sig @@ portable
     val forget_t : t -> (Type.t -> 'r) -> 'r
     val forget_toc : t_or_comment -> (Type.t option -> 'r) -> 'r

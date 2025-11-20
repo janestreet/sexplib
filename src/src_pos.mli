@@ -27,6 +27,6 @@ module Absolute : sig
   val add : t -> Relative.t -> t
   val sub : t -> Relative.t -> t
 
-  (*val compare : t -> t -> int*)
+  (* val compare : t -> t -> int *)
   val geq : t -> t -> bool
 end

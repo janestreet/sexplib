@@ -526,7 +526,11 @@ module type S = sig @@ portable
 
   include Pretty_printing with type output := string (** @inline *)
 
-  (** See [Pretty_printing.to_string_mach] and [to_string], respectively. *)
+  (** See [Pretty_printing.to_string_hum], [to_string_mach], and [to_string],
+      respectively. *)
+
+  (** WARNING [to_string_hum__stack] globalizes [t] if it is allocated on the stack. *)
+  val to_string_hum__stack : ?indent:int -> ?max_width:int -> t @ local -> string @ local
 
   val to_string_mach__stack : t @ local -> string @ local
   val to_string__stack : t @ local -> string @ local

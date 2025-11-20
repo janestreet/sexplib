@@ -85,7 +85,7 @@ let test_printer () =
       "a \"|#\" b"
     ; (* quoted atom with block comment end *)
       "a #|\"|#\" b|#"
-    ; (* block comment with quoted atom  *)
+    ; (* block comment with quoted atom *)
       "a \n#|\"\n|#\" b|#\n"
     ; (* block comment with quoted atom and newlines *)
 
@@ -142,9 +142,10 @@ let test_printer () =
                 (match printed_str_opt with
                  | None -> ()
                  | Some printed_str ->
-                   (* trailing whitespace (at the end of lines or at the end of file) is not
-                         handled by the parser/printer, except when they are in a comment but that
-                         is annoying to check so stripping everything from both strings *)
+                   (* trailing whitespace (at the end of lines or at the end of file) is
+                      not handled by the parser/printer, except when they are in a comment
+                      but that is annoying to check so stripping everything from both
+                      strings *)
                    if normalize_string test_str <> normalize_string printed_str
                    then (
                      incr failures;
