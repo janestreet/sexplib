@@ -366,8 +366,7 @@ let%test_unit _ =
   same_parse_tree [%here] "#| ; |# ()" "()";
   (* single line comment are not parsed inside of blocks *)
   same_parse_tree [%here] "#|#||#|#a" "a";
-  (* consecutive comment opening are not parsed
-     as one invalid atom *)
+  (* consecutive comment opening are not parsed as one invalid atom *)
   (* why do we need a freaking space at the end?? *)
   same_parse_trees [%here] "a #; b c " "a c ";
   (* base case, accepting lists *)
