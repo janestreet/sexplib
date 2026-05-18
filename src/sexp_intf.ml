@@ -1,6 +1,5 @@
 (** Sexp_intf: interface specification for handling S-expressions (I/O, etc.) *)
 
-open Basement
 open Bigarray
 
 module type Pretty_printing_helpers = Sexplib0.Sexp.Pretty_printing_helpers
@@ -15,14 +14,7 @@ module type S = sig @@ portable
   (** Type of bigstrings *)
   type bigstring = (char, int8_unsigned_elt, c_layout) Array1.t
 
-  val compare : t -> t -> int
-  val equal : t -> t -> bool
-
-  (** {6 Defaults} *)
-
-  (** [default_indent] reference to default indentation level for human-readable
-      conversions. Initialisation value: 2. *)
-  val default_indent : int Dynamic.t
+  include module type of Sexplib0.Sexp with type t := Type.t
 
   (** {6 S-expression size} *)
 
