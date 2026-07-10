@@ -19,6 +19,9 @@ depends: [
   "num"
 ]
 available: arch != "x86_32"
+conflicts: [
+  "oxcaml-compiler" {< "5.2.0minus39"}
+]
 synopsis: "Library for serializing OCaml values to and from S-expressions"
 description: "
 Part of Jane Street's Core library
