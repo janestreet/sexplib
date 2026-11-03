@@ -3,4 +3,4 @@
  (libraries base base_quickcheck base.composition_infix
    expect_test_helpers_core sexp_grammar.validation sexplib stdio)
  (preprocess
-  (pps ppx_jane)))
+  (pps ppx_jane -compare-require-explicit-locality)))

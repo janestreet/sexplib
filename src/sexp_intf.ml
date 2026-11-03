@@ -175,18 +175,18 @@ module type S = sig @@ portable
 
     (** [get_sexp annot_sexp]
         @return S-expression associated with annotated S-expression [annot_sexp]. *)
-    val get_sexp : t -> Type.t
+    val get_sexp : t -> Type.t @@ portable
 
     (** [get_range annot_sexp]
         @return the range associated with annotated S-expression [annot_sexp]. *)
-    val get_range : t -> range
+    val get_range : t -> range @@ portable
 
     (** [find_sexp annot_sexp sexp]
         @return
           [Some res] where [res] is the annotated S-expression that is physically
           equivalent to [sexp] in [annot_sexp], or [None] if there is no such
           S-expression. *)
-    val find_sexp : t -> Type.t -> t option
+    val find_sexp : t -> Type.t -> t option @@ portable
 
     (** {6 Annotated (partial) parsing} *)
 
@@ -234,14 +234,14 @@ module type S = sig @@ portable
     (** {6 String and bigstring conversions} *)
 
     (** [of_string str] same as {!of_string}, but returns an annotated S-expression. *)
-    val of_string : string -> t
+    val of_string : string -> t @@ portable
 
     (** [of_string_many] same as {!of_string_many}, but returns a list of annotated
         S-expressions.
 
         Similar to {!of_string_many}, on parse failure it raises [Parsexp.Parse_error]
         rather than a native [Sexplib.Sexp.Parse_error]. *)
-    val of_string_many : string -> t list
+    val of_string_many : string -> t list @@ portable
 
     (** [of_bigstring bstr] same as {!of_string}, but operates on bigstrings. *)
     val of_bigstring : bigstring -> t
