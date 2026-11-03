@@ -510,10 +510,6 @@ module type S = sig
       respectively. *)
 
   (** WARNING [to_string_hum__stack] globalizes [t] if it is allocated on the stack. *)
-  val to_string_hum__stack : ?indent:int -> ?max_width:int -> t -> string
-
-  val to_string_mach__stack : t -> string
-  val to_string__stack : t -> string
 
   (** {6 Utilities for automated type conversions} *)
 
@@ -525,8 +521,6 @@ module type S = sig
   (** [sexp_of_t sexp] maps S-expressions which are part of a type with automated
       S-expression conversion to themselves. *)
   val sexp_of_t : t -> t
-
-  val sexp_of_t__stack : t -> t
 
   (** [t_of_sexp sexp] maps S-expressions which are part of a type with automated
       S-expression conversion to themselves. *)
