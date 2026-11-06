@@ -279,6 +279,7 @@ and scan_block_comment buf locs = parse
         let simple_string x = STRING x
         let quoted_string _ buf = STRING (Buffer.contents buf)
         let block_comment _pos ~main buf lexbuf =
+          Buffer.clear buf;
           main buf lexbuf
         let comment _text ~main buf lexbuf =
           main buf lexbuf (* skip and continue lexing *)
