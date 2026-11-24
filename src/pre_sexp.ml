@@ -742,14 +742,23 @@ let gen_load_sexp my_parse ?(strict = true) ?(buf = Bytes.create 8192) file =
             then strict_loop this_parse ~pos:0 ~len
             else if cont_state = Cont_state.Parsing_toplevel_whitespace
             then sexp
-            else
-              failwith
-                (sprintf
-                   "%s: %s in state %s loading file %s"
-                   gen_load_sexp_loc
-                   "additional incomplete data"
-                   (Cont_state.to_string cont_state)
-                   file)
+            else (
+              match feed_end_of_input ~this_parse ~ws_buf:" " with
+              | Error Cont_state.Parsing_toplevel_whitespace -> sexp
+              | Ok _ ->
+                failwith
+                  (sprintf
+                     "%s: more than one S-expression in file %s"
+                     gen_load_sexp_loc
+                     file)
+              | Error _ ->
+                failwith
+                  (sprintf
+                     "%s: %s in state %s loading file %s"
+                     gen_load_sexp_loc
+                     "additional incomplete data"
+                     (Cont_state.to_string cont_state)
+                     file))
         in
         let this_parse = mk_this_parse ~parse_pos my_parse in
         strict_loop this_parse ~pos:buf_pos ~len:(len - buf_pos)
