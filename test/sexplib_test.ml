@@ -8,5 +8,6 @@ module Test_bigarray_grammars = Test_bigarray_grammars
 module Test_bigarrays = Test_bigarrays
 module Test_common = Test_common
 module Test_eof = Test_eof
+module Test_input_sexp = Test_input_sexp
 module Test_sexp_of_string = Test_sexp_of_string
 module Test_sexp_with_layout = Test_sexp_with_layout
