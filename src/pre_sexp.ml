@@ -585,7 +585,19 @@ let gen_input_sexp my_parse ?parse_pos ic =
     | c ->
       Bytes.set buf 0 c;
       (match this_parse ~pos:0 ~len:1 (Bytes.unsafe_to_string buf) with
-       | Done (sexp, _) -> sexp
+       | Done (sexp, { Parse_pos.buf_pos; _ }) ->
+         (* An unquoted atom only ends at the character after it. The parser does not
+            consume that character ([buf_pos = 0]), but [input_char] has already taken
+            it from [ic], so step back over it: subsequent input functions must see it.
+            The character is still in the channel buffer, so in binary mode [seek_in]
+            only moves the buffer pointer, which also works on pipes and terminals.
+            Under Windows and Cygwin a channel may be in text mode, where [pos_in] is
+            approximate, so the character is not put back there. *)
+         if Atomic.get buf_pos = 0 && not (Sys.win32 || Sys.cygwin)
+         then (
+           try LargeFile.seek_in ic (Int64.pred (LargeFile.pos_in ic)) with
+           | Sys_error _ -> ());
+         sexp
        | Cont (_, this_parse) -> loop this_parse)
   in
   loop (mk_this_parse ?parse_pos my_parse)
